@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Sequence
 
 from ticket_readiness.workflow import (
+    WorkflowError,
     post_approved,
     run_analysis,
     summarize_run,
@@ -82,7 +83,11 @@ def _validate_approvals(args: argparse.Namespace) -> int:
 
 
 def _post_approved(args: argparse.Namespace) -> int:
-    posted = post_approved(config_path=args.config, run_id=args.run, issue_id=args.issue_id)
+    try:
+        posted = post_approved(config_path=args.config, run_id=args.run, issue_id=args.issue_id)
+    except WorkflowError as exc:
+        print(str(exc))
+        return 1
     print("Approved comment posted." if posted else "Approved comment was not posted.")
     return 0 if posted else 1
 

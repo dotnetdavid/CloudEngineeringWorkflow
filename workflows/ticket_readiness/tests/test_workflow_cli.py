@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ticket_readiness.approvals import write_approval_template
+from ticket_readiness.artifacts import ArtifactStore
 from ticket_readiness.cli import main
 
 
@@ -68,7 +70,30 @@ def test_validate_approvals_command_blocks_default_skipped_template(tmp_path):
     assert exit_code == 1
 
 
-def _config(tmp_path: Path) -> Path:
+def test_post_approved_refuses_when_write_back_disabled(tmp_path, capsys):
+    config = _config(tmp_path)
+    run_id = _approved_run(tmp_path, issue_id="ASG-40")
+
+    exit_code = main(["--config", str(config), "post-approved", "--run", run_id, "--issue-id", "ASG-40"])
+
+    assert exit_code == 1
+    assert "write-back is disabled" in capsys.readouterr().out
+
+
+def test_post_approved_posts_when_write_back_enabled_and_approval_valid(tmp_path, capsys, monkeypatch):
+    config = _config(tmp_path, write_back_enabled=True)
+    run_id = _approved_run(tmp_path, issue_id="ASG-40")
+    client = FakeCommentClient({"id": "comment-123"})
+    monkeypatch.setattr("ticket_readiness.workflow.HTTPLinearCommentClient", lambda: client)
+
+    exit_code = main(["--config", str(config), "post-approved", "--run", run_id, "--issue-id", "ASG-40"])
+
+    assert exit_code == 0
+    assert "Approved comment posted." in capsys.readouterr().out
+    assert client.calls == [{"issue_id": "ASG-40", "body": "draft comment\n"}]
+
+
+def _config(tmp_path: Path, *, write_back_enabled: bool = False) -> Path:
     path = tmp_path / "config.yaml"
     path.write_text(
         "\n".join(
@@ -82,10 +107,39 @@ def _config(tmp_path: Path) -> Path:
                 "  id: project-123",
                 "  url: https://linear.app/asgard-ai-agency/project/project-123",
                 "write_back:",
-                "  enabled: false",
+                f"  enabled: {str(write_back_enabled).lower()}",
                 "  requires_human_approval: true",
             ]
         ),
         encoding="utf-8",
     )
     return path
+
+
+def _approved_run(tmp_path: Path, *, issue_id: str) -> str:
+    run = ArtifactStore(tmp_path / "runs").create_run(
+        workflow_name="ticket-readiness",
+        workflow_version="0.1.0",
+        source="asgard-sandbox",
+        linear_project_id="project-123",
+        linear_project_url="https://linear.app/asgard-ai-agency/project/project-123",
+        nonce="aaaabbbb",
+    )
+    draft_relative_path = f"drafts/{issue_id}-linear-comment.md"
+    run.path(draft_relative_path).write_text("draft comment\n", encoding="utf-8")
+    template = write_approval_template(run=run, issue_id=issue_id, draft_relative_path=draft_relative_path)
+    approval_path = run.path(template.path)
+    payload = json.loads(approval_path.read_text(encoding="utf-8"))
+    payload["decision"] = "approved"
+    approval_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return run.run_id
+
+
+class FakeCommentClient:
+    def __init__(self, response: dict):
+        self._response = response
+        self.calls: list[dict] = []
+
+    def create_comment(self, *, issue_id: str, body: str) -> dict:
+        self.calls.append({"issue_id": issue_id, "body": body})
+        return self._response
