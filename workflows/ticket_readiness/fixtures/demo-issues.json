@@ -1,0 +1,35 @@
+[
+  {
+    "id": "ASG-40",
+    "title": "Add S3 VPC endpoint for private artifact bucket access",
+    "description": "Create a gateway VPC endpoint for S3 in the sandbox account, us-east-1, so that private build workers can reach the artifact bucket without NAT.\n\nAcceptance Criteria:\n- Endpoint is created by Terraform.\n- Route tables are updated for private subnets.\n- Existing bucket access still works.\n\nRollback: revert the Terraform change and remove endpoint routes.\nValidation: run terraform plan/apply in sandbox and verify S3 access from a private worker.\nSecurity: no public ingress and no IAM policy changes.\nOwner: platform team.",
+    "priority": {
+      "value": 2,
+      "name": "High"
+    },
+    "estimate": 3,
+    "status": "Backlog",
+    "statusType": "backlog",
+    "labels": ["sandbox", "infrastructure"],
+    "project": "AI Workflow Sandbox - Ticket Readiness",
+    "projectId": "8ff212c4-dfc7-4152-88e0-3dd65723a420",
+    "team": "Asgard AI Agency",
+    "teamId": "b578eff2-753f-4777-995a-d542d7c2b6f4",
+    "url": "https://linear.app/asgard-ai-agency/issue/ASG-40/example"
+  },
+  {
+    "id": "ASG-41",
+    "title": "Fix production networking",
+    "description": "",
+    "priority": null,
+    "estimate": null,
+    "status": "Backlog",
+    "statusType": "backlog",
+    "labels": ["production"],
+    "project": "AI Workflow Sandbox - Ticket Readiness",
+    "projectId": "8ff212c4-dfc7-4152-88e0-3dd65723a420",
+    "team": "Asgard AI Agency",
+    "teamId": "b578eff2-753f-4777-995a-d542d7c2b6f4",
+    "url": "https://linear.app/asgard-ai-agency/issue/ASG-41/example"
+  }
+]

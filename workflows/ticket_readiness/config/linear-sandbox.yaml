@@ -1,0 +1,28 @@
+workspace: Asgard AI Agency
+team: Asgard AI Agency
+team_key: ASG
+project:
+  name: AI Workflow Sandbox - Ticket Readiness
+  id: 8ff212c4-dfc7-4152-88e0-3dd65723a420
+  url: https://linear.app/asgard-ai-agency/project/ai-workflow-sandbox-ticket-readiness-2b4d38343dc1
+seed_issues:
+  - ASG-40
+  - ASG-41
+  - ASG-42
+  - ASG-43
+  - ASG-44
+  - ASG-45
+  - ASG-46
+  - ASG-47
+  - ASG-48
+write_back:
+  enabled: false
+  requires_human_approval: true
+  allowed_actions:
+    - draft_comment
+    - approved_comment
+  disallowed_actions:
+    - automatic_status_change
+    - automatic_issue_rewrite
+    - automatic_assignment
+

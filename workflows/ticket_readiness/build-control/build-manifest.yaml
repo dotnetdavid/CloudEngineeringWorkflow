@@ -1,0 +1,148 @@
+project:
+  name: Ticket Readiness Workflow
+  workflow_id: ticket_readiness
+  source_spec: workflows/ticket_readiness/docs/detailed-specification.md
+  cover_sheet: workflows/ticket_readiness/docs/cover-sheet.md
+  story_framework: frameworks/story-definition-framework.md
+  runbook: workflows/ticket_readiness/build-control/BUILD_RUNBOOK.md
+  linear_workspace: Asgard AI Agency
+  linear_team: Asgard AI Agency
+  linear_project: AI Workflow Sandbox - Ticket Readiness
+  linear_project_id: 8ff212c4-dfc7-4152-88e0-3dd65723a420
+
+planning:
+  linear_creation_status: created
+  linear_created_at: 2026-06-22T20:35:25Z
+  issue_creation_strategy: milestone_level_first
+  implementation_repository: /mnt/f/Obsidian/Hermes/projects/CloudEngineerWorkflows/ticket-readiness-workflow
+  runtime: Python CLI application
+  test_runner: pytest
+  llm_provider: OpenAI API directly
+  approval_model: manual_file_based
+
+priorities:
+  P0: required_to_prove_core_workflow_safely
+  P1: required_for_usable_v1_product_surface
+  P2: required_for_showcase_completeness_or_follow_on_integration
+
+stories:
+  - id: TR-001
+    file: workflows/ticket_readiness/build-control/stories/001-project-scaffold.md
+    linear_issue: ASG-49
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-49/tr-001-project-scaffold
+    title: Project Scaffold
+    priority: P0
+    tool_type: foundation
+    spec_trace: "18.1 Project Scaffold"
+    blocked_by: []
+    blocks: [TR-002, TR-003, TR-004, TR-005, TR-011, TR-012]
+  - id: TR-002
+    file: workflows/ticket_readiness/build-control/stories/002-linear-read-adapter.md
+    linear_issue: ASG-50
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-50/tr-002-linear-read-adapter
+    title: Linear Read Adapter
+    priority: P0
+    tool_type: adapter
+    spec_trace: "18.2 Linear Read Adapter"
+    blocked_by: [TR-001]
+    blocks: [TR-006, TR-010]
+  - id: TR-003
+    file: workflows/ticket_readiness/build-control/stories/003-artifact-store.md
+    linear_issue: ASG-51
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-51/tr-003-artifact-store
+    title: Artifact Store
+    priority: P0
+    tool_type: artifact-store
+    spec_trace: "18.3 Artifact Store"
+    blocked_by: [TR-001]
+    blocks: [TR-006, TR-007, TR-008, TR-010, TR-012]
+  - id: TR-004
+    file: workflows/ticket_readiness/build-control/stories/004-deterministic-readiness-engine.md
+    linear_issue: ASG-52
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-52/tr-004-deterministic-readiness-engine
+    title: Deterministic Readiness Engine
+    priority: P0
+    tool_type: workflow
+    spec_trace: "18.4 Deterministic Readiness Engine"
+    blocked_by: [TR-001]
+    blocks: [TR-005, TR-006, TR-007, TR-010]
+  - id: TR-005
+    file: workflows/ticket_readiness/build-control/stories/005-llm-analysis-adapter.md
+    linear_issue: ASG-53
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-53/tr-005-llm-analysis-adapter
+    title: LLM Analysis Adapter
+    priority: P0
+    tool_type: adapter
+    spec_trace: "18.5 LLM Analysis Adapter"
+    blocked_by: [TR-001, TR-004, TR-011]
+    blocks: [TR-006, TR-007, TR-010]
+  - id: TR-006
+    file: workflows/ticket_readiness/build-control/stories/006-report-generator.md
+    linear_issue: ASG-54
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-54/tr-006-report-generator
+    title: Report Generator
+    priority: P0
+    tool_type: backend
+    spec_trace: "18.6 Report Generator"
+    blocked_by: [TR-002, TR-003, TR-004, TR-005]
+    blocks: [TR-007, TR-010, TR-012]
+  - id: TR-007
+    file: workflows/ticket_readiness/build-control/stories/007-draft-comment-generator.md
+    linear_issue: ASG-55
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-55/tr-007-draft-comment-generator
+    title: Draft Comment Generator
+    priority: P0
+    tool_type: backend
+    spec_trace: "18.7 Draft Comment Generator"
+    blocked_by: [TR-003, TR-004, TR-005, TR-006]
+    blocks: [TR-008, TR-009, TR-010, TR-012]
+  - id: TR-008
+    file: workflows/ticket_readiness/build-control/stories/008-approval-workflow.md
+    linear_issue: ASG-56
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-56/tr-008-approval-workflow
+    title: Approval Workflow
+    priority: P0
+    tool_type: security
+    spec_trace: "18.8 Approval Workflow"
+    blocked_by: [TR-003, TR-007]
+    blocks: [TR-009, TR-010, TR-012]
+  - id: TR-009
+    file: workflows/ticket_readiness/build-control/stories/009-linear-comment-write-back.md
+    linear_issue: ASG-57
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-57/tr-009-linear-comment-write-back
+    title: Linear Comment Write-Back
+    priority: P0
+    tool_type: integration
+    spec_trace: "18.9 Linear Comment Write-Back"
+    blocked_by: [TR-007, TR-008, TR-011]
+    blocks: [TR-010, TR-012]
+  - id: TR-010
+    file: workflows/ticket_readiness/build-control/stories/010-run-summary.md
+    linear_issue: ASG-58
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-58/tr-010-run-summary
+    title: Run Summary
+    priority: P0
+    tool_type: observability
+    spec_trace: "18.10 Run Summary"
+    blocked_by: [TR-002, TR-003, TR-004, TR-005, TR-006, TR-007, TR-008, TR-009]
+    blocks: [TR-012]
+  - id: TR-011
+    file: workflows/ticket_readiness/build-control/stories/011-security-and-redaction.md
+    linear_issue: ASG-59
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-59/tr-011-security-and-redaction
+    title: Security And Redaction
+    priority: P0
+    tool_type: security
+    spec_trace: "18.11 Security And Redaction"
+    blocked_by: [TR-001]
+    blocks: [TR-005, TR-009, TR-012]
+  - id: TR-012
+    file: workflows/ticket_readiness/build-control/stories/012-documentation-and-demo.md
+    linear_issue: ASG-60
+    linear_url: https://linear.app/asgard-ai-agency/issue/ASG-60/tr-012-documentation-and-demo
+    title: Documentation And Demo
+    priority: P1
+    tool_type: qa-docs
+    spec_trace: "18.12 Documentation And Demo"
+    blocked_by: [TR-001, TR-003, TR-006, TR-007, TR-008, TR-009, TR-010, TR-011]
+    blocks: []

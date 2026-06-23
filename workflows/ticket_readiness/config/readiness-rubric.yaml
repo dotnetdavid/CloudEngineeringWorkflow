@@ -1,0 +1,67 @@
+statuses:
+  ready:
+    description: Sufficient for sprint planning or implementation.
+  needs_grooming:
+    description: Useful ticket, but missing information should be resolved before commitment.
+  blocked:
+    description: Cannot proceed without external dependency, approval, or input.
+  not_ready:
+    description: Too vague, risky, or underspecified for useful planning.
+
+dimensions:
+  outcome_clarity:
+    weight: 2
+    required_for_ready: true
+  scope_boundaries:
+    weight: 1
+    required_for_ready: false
+  environment_blast_radius:
+    weight: 2
+    required_for_ready: true
+  acceptance_criteria:
+    weight: 2
+    required_for_ready: true
+  rollback_recovery:
+    weight: 2
+    required_for_ready: false
+    required_when:
+      - infrastructure_change
+      - production_change
+      - access_change
+      - database_change
+  security_impact:
+    weight: 2
+    required_for_ready: false
+    required_when:
+      - iam
+      - networking
+      - secrets
+      - production
+      - privileged_access
+  observability_validation:
+    weight: 1
+    required_for_ready: false
+  dependencies_ownership:
+    weight: 1
+    required_for_ready: false
+  estimate_confidence:
+    weight: 1
+    required_for_ready: false
+
+risk_flags:
+  high:
+    - production
+    - iam
+    - eks_admin_access
+    - database_reboot
+    - security_group_change
+    - broad_network_access
+  medium:
+    - cost_anomaly
+    - terraform_drift
+    - observability_module
+    - vpc_endpoint
+  low:
+    - documentation_only
+    - planning_only
+
