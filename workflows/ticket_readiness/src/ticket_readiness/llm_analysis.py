@@ -8,7 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
-from ticket_readiness.http_config import validate_timeout_seconds
+from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.linear import LinearIssue
 from ticket_readiness.rate_limit import RateLimitError
 from ticket_readiness.readiness import DeterministicReadinessResult
@@ -116,7 +116,7 @@ class HTTPOpenAIClient:
                 raise LLMAnalysisError("OpenAI response request was rate limited.") from RateLimitError(
                     "OpenAI response request was rate limited."
                 )
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            detail = safe_http_error_detail(exc.read())
             raise LLMAnalysisError(
                 f"OpenAI response request failed with HTTP {exc.code}: {detail}"
             ) from exc

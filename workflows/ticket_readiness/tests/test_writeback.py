@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from pathlib import Path
+import urllib.error
 
 import pytest
 
@@ -76,6 +78,29 @@ def test_http_comment_client_rejects_invalid_timeout(timeout_seconds):
 @pytest.mark.parametrize("timeout_seconds", [1, 300])
 def test_http_comment_client_accepts_valid_timeout(timeout_seconds):
     HTTPLinearCommentClient(api_key="linear-key", timeout_seconds=timeout_seconds)
+
+
+def test_http_comment_client_redacts_secret_like_error_details(monkeypatch):
+    secret = "sk" + "-proj-" + "c" * 40
+
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            500,
+            "Internal Server Error",
+            hdrs={},
+            fp=BytesIO(f'{{"error":"failed with {secret}"}}'.encode("utf-8")),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(WriteBackError) as exc_info:
+        HTTPLinearCommentClient(api_key="linear-key").create_comment(issue_id="ASG-40", body="draft")
+
+    message = str(exc_info.value)
+    assert "HTTP 500" in message
+    assert secret not in message
+    assert "[REDACTED_SECRET]" in message
 
 
 def _approved_run(tmp_path: Path):
