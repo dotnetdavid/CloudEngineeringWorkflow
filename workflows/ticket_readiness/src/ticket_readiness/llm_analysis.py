@@ -8,6 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.linear import LinearIssue
 from ticket_readiness.rate_limit import RateLimitError
@@ -43,7 +44,7 @@ LIST_FIELDS = (
 )
 
 
-class LLMAnalysisError(RuntimeError):
+class LLMAnalysisError(TicketReadinessError):
     """Raised when model analysis cannot be trusted."""
 
 

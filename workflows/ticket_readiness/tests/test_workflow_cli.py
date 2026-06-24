@@ -411,6 +411,23 @@ def test_summarize_run_ignores_approval_validation_failures_as_issue_errors(tmp_
     assert "analysis_failed" not in summary
 
 
+def test_summarize_run_returns_nonzero_for_missing_run(tmp_path, capsys):
+    config = _config(tmp_path)
+
+    exit_code = main(["--config", str(config), "summarize-run", "--run", "missing-run"])
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "missing-run" in captured.out
+    log_records = _json_stdout_records_from_text(captured.out, captured.err)
+    assert any(
+        record["event_type"] == "command_failed"
+        and record["severity"] == "error"
+        and "missing-run" in record["message"]
+        for record in log_records
+    )
+
+
 def test_post_approved_refuses_when_write_back_disabled(tmp_path, capsys):
     config = _config(tmp_path)
     run_id = _approved_run(tmp_path, issue_id="ASG-40")
@@ -510,8 +527,12 @@ class FakeCommentClient:
 
 def _json_stdout_records(capsys):
     captured = capsys.readouterr()
+    return _json_stdout_records_from_text(captured.out, captured.err)
+
+
+def _json_stdout_records_from_text(stdout: str, stderr: str):
     return [
         json.loads(line)
-        for line in (captured.out + "\n" + captured.err).splitlines()
+        for line in (stdout + "\n" + stderr).splitlines()
         if line.startswith("{")
     ]

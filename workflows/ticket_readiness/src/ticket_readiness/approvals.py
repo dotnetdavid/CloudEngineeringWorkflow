@@ -7,11 +7,12 @@ from typing import Any
 
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
 from ticket_readiness.drafts import compute_draft_hash
+from ticket_readiness.errors import TicketReadinessError
 
 APPROVAL_DECISIONS = {"approved", "rejected", "skipped"}
 
 
-class ApprovalError(RuntimeError):
+class ApprovalError(TicketReadinessError):
     """Raised when write-back approval is missing, stale, or invalid."""
 
 

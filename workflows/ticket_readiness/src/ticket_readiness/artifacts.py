@@ -9,13 +9,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.logging import log_event
 from ticket_readiness.security import redact_secrets
 
 _RUN_DIRECTORIES = ("inputs", "inputs/issues", "reports", "drafts", "approvals")
 
 
-class ArtifactWriteError(RuntimeError):
+class ArtifactWriteError(TicketReadinessError):
     """Raised when local run evidence cannot be written safely."""
 
 

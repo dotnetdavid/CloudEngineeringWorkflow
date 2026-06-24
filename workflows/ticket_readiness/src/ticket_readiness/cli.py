@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.logging import configure_logging, log_event
 from ticket_readiness.workflow import (
     WorkflowError,
@@ -65,7 +66,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.handler(args)
+    try:
+        return args.handler(args)
+    except TicketReadinessError as exc:
+        _report_command_failure(exc)
+        return 1
 
 
 def _run_analysis(args: argparse.Namespace) -> int:
@@ -108,3 +113,13 @@ def _summarize_run(args: argparse.Namespace) -> int:
     summary_path = summarize_run(config_path=args.config, run_id=args.run)
     print(f"Summary written: {summary_path}")
     return 0
+
+
+def _report_command_failure(exc: TicketReadinessError) -> None:
+    log_event(
+        event_type="command_failed",
+        state="failed",
+        message=str(exc),
+        severity="error",
+    )
+    print(str(exc))
