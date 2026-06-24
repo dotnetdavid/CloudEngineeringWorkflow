@@ -153,6 +153,27 @@ when a run has been created; issue-level records also include `issue_id`.
 `events.jsonl` remains the durable run evidence, while stderr logs are intended
 for operator visibility and aggregation.
 
+## Metrics
+
+Each `summary.md` includes a lightweight workflow metrics section, and
+`manifest.json` writes the same structured counts under `counts`.
+
+Current V1 metrics include:
+
+- issues processed.
+- issue analysis success and failure counts.
+- run-level and issue-level error counts.
+- per-phase event counts derived from `events.jsonl`.
+- known OpenAI Responses API calls inferred from completed report metadata.
+- model usage token totals when the model response provided usage metadata.
+- model latency aggregates when the model response provided latency metadata.
+
+The metrics are artifact-derived and intentionally conservative. They do not
+yet provide full HTTP client instrumentation for every Linear or OpenAI request,
+retries, transport latency, provider-side queueing, or Prometheus-style export.
+If those are needed, add explicit client-level metrics collection before using
+this workflow as a production reliability signal.
+
 ## Run Artifacts
 
 Each run folder should contain:
