@@ -22,6 +22,8 @@ into expensive surprises.
 - `docs/workflow-design.md` - early design notes.
 - `docs/readiness-rubric.md` - readiness scoring and classification rubric.
 - `docs/known-risks.md` - current known risks and safety concerns.
+- `docs/adr-001-http-client-and-sdk-usage.md` - V1 decision on direct
+  `urllib.request` usage versus `httpx`, `requests`, or provider SDKs.
 
 ## Build Control
 
