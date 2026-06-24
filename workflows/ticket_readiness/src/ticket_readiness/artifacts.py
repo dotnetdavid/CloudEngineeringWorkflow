@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ticket_readiness.logging import log_event
 from ticket_readiness.security import redact_secrets
 
 _RUN_DIRECTORIES = ("inputs", "inputs/issues", "reports", "drafts", "approvals")
@@ -49,6 +50,14 @@ class RunArtifacts:
             with self.path("events.jsonl").open("a", encoding="utf-8") as event_file:
                 event_file.write(json.dumps(event, sort_keys=True))
                 event_file.write("\n")
+            log_event(
+                event_type=event_type,
+                state=state,
+                message=message,
+                run_id=self.run_id,
+                issue_id=issue_id,
+                severity="error" if state == "failed" else "info",
+            )
         except OSError as exc:
             raise ArtifactWriteError(f"Failed to append run event: {self.run_id}") from exc
 
