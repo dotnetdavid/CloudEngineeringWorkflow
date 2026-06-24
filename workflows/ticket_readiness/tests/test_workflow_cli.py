@@ -55,6 +55,47 @@ def test_run_analysis_fixture_mode_creates_artifacts(tmp_path):
     assert (run / "summary.md").exists()
 
 
+def test_run_analysis_rejects_absolute_artifact_root_before_writing(tmp_path, capsys):
+    rejected_root = tmp_path / "absolute-artifact-root"
+    config = _config(tmp_path, artifact_root=str(rejected_root))
+    fixture = _fixture(tmp_path)
+
+    exit_code = main(
+        [
+            "--config",
+            str(config),
+            "run-analysis",
+            "--fixture-data",
+            str(fixture),
+            "--mock-llm",
+        ]
+    )
+
+    assert exit_code == 1
+    assert "artifact_root must be project-relative" in capsys.readouterr().out
+    assert not rejected_root.exists()
+
+
+def test_run_analysis_rejects_traversal_artifact_root_before_writing(tmp_path, capsys):
+    config = _config(tmp_path, artifact_root="../sensitive")
+    fixture = _fixture(tmp_path)
+
+    exit_code = main(
+        [
+            "--config",
+            str(config),
+            "run-analysis",
+            "--fixture-data",
+            str(fixture),
+            "--mock-llm",
+        ]
+    )
+
+    assert exit_code == 1
+    assert "artifact_root must not contain parent traversal" in capsys.readouterr().out
+    assert not (tmp_path.parent / "sensitive").exists()
+
+
 def test_validate_approvals_command_blocks_default_skipped_template(tmp_path):
     config = _config(tmp_path)
     fixture = tmp_path / "issues.json"
@@ -93,7 +134,12 @@ def test_post_approved_posts_when_write_back_enabled_and_approval_valid(tmp_path
     assert client.calls == [{"issue_id": "ASG-40", "body": "draft comment\n"}]
 
 
-def _config(tmp_path: Path, *, write_back_enabled: bool = False) -> Path:
+def _config(
+    tmp_path: Path,
+    *,
+    artifact_root: str | None = None,
+    write_back_enabled: bool = False,
+) -> Path:
     path = tmp_path / "config.yaml"
     path.write_text(
         "\n".join(
@@ -101,7 +147,7 @@ def _config(tmp_path: Path, *, write_back_enabled: bool = False) -> Path:
                 "workspace: Asgard AI Agency",
                 "team: Asgard AI Agency",
                 "team_key: ASG",
-                "artifact_root: " + str(tmp_path / "runs"),
+                "artifact_root: " + (artifact_root or "runs"),
                 "project:",
                 "  name: AI Workflow Sandbox - Ticket Readiness",
                 "  id: project-123",
@@ -114,6 +160,15 @@ def _config(tmp_path: Path, *, write_back_enabled: bool = False) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _fixture(tmp_path: Path) -> Path:
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps([{"id": "ASG-40", "title": "Ticket", "description": "Acceptance Criteria: done"}]),
+        encoding="utf-8",
+    )
+    return fixture
 
 
 def _approved_run(tmp_path: Path, *, issue_id: str) -> str:

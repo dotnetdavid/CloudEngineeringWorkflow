@@ -31,7 +31,7 @@ def run_analysis(
     mock_llm: bool = False,
 ) -> str:
     config = load_config(config_path)
-    run = _create_run(config)
+    run = _create_run(config, config_path=config_path)
     run.append_event(event_type="run_started", state="running", message="Run started.")
 
     issues = _load_fixture_issues(fixture_data) if fixture_data else _read_linear_issues(config)
@@ -99,7 +99,7 @@ def run_analysis(
 
 
 def validate_approvals(*, config_path: Path, run_id: str) -> bool:
-    run = _existing_run(load_config(config_path), run_id)
+    run = _existing_run(load_config(config_path), run_id, config_path=config_path)
     drafts = sorted(run.path("drafts").glob("*-linear-comment.md"))
     all_valid = True
     for draft in drafts:
@@ -128,7 +128,7 @@ def post_approved(*, config_path: Path, run_id: str, issue_id: str) -> bool:
     config = load_config(config_path)
     if not _write_back_enabled(config):
         raise WorkflowError("Linear write-back is disabled by config: write_back.enabled must be true.")
-    run = _existing_run(config, run_id)
+    run = _existing_run(config, run_id, config_path=config_path)
     draft_relative_path = f"drafts/{issue_id}-linear-comment.md"
     writer = LinearCommentWriteBack(client=HTTPLinearCommentClient())
     try:
@@ -139,15 +139,15 @@ def post_approved(*, config_path: Path, run_id: str, issue_id: str) -> bool:
 
 
 def summarize_run(*, config_path: Path, run_id: str) -> str:
-    run = _existing_run(load_config(config_path), run_id)
+    run = _existing_run(load_config(config_path), run_id, config_path=config_path)
     # Regenerating from rich state arrives in a later dashboard-worthy pass; for now
     # preserve partial-run behavior and ensure summary.md exists.
     return generate_run_summary(run=run, issues=[], errors=[])
 
 
-def _create_run(config: dict[str, Any]) -> RunArtifacts:
+def _create_run(config: dict[str, Any], *, config_path: Path) -> RunArtifacts:
     project = config["project"]
-    root = Path(config.get("artifact_root", "runs"))
+    root = _artifact_root(config, config_path=config_path)
     return ArtifactStore(root).create_run(
         workflow_name="ticket-readiness",
         workflow_version="0.1.0",
@@ -157,9 +157,18 @@ def _create_run(config: dict[str, Any]) -> RunArtifacts:
     )
 
 
-def _existing_run(config: dict[str, Any], run_id: str) -> RunArtifacts:
-    root = Path(config.get("artifact_root", "runs")) / run_id
+def _existing_run(config: dict[str, Any], run_id: str, *, config_path: Path) -> RunArtifacts:
+    root = _artifact_root(config, config_path=config_path) / run_id
     return RunArtifacts(run_id=run_id, root=root)
+
+
+def _artifact_root(config: dict[str, Any], *, config_path: Path) -> Path:
+    configured_root = Path(str(config.get("artifact_root", "runs")))
+    if configured_root.is_absolute():
+        raise WorkflowError("artifact_root must be project-relative, not absolute.")
+    if ".." in configured_root.parts:
+        raise WorkflowError("artifact_root must not contain parent traversal ('..').")
+    return config_path.parent / configured_root
 
 
 def _write_back_enabled(config: dict[str, Any]) -> bool:
