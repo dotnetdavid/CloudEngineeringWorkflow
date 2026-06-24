@@ -6,9 +6,21 @@ from typing import Any
 REDACTION = "[REDACTED_SECRET]"
 
 SECRET_PATTERNS = (
+    re.compile(
+        r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
+        re.DOTALL,
+    ),
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._-]{20,}"),
+    re.compile(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|sqlserver)://[^\s'\"<>]+"
+    ),
+    re.compile(r"(?i)\bjdbc:(?:postgresql|mysql|mariadb|sqlserver):[^\s'\"<>]+"),
+    re.compile(
+        r"(?i)\b(?:server|data source|host)\s*=[^;\n]+;(?:[^;\n]*;)*\s*(?:password|pwd)\s*=[^;\n]+(?:;[^;\n]*)*"
+    ),
     re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*[A-Za-z0-9._/+=-]{20,}"),
     re.compile(r"(?i)\baws_secret_access_key\s*[:=]\s*[A-Za-z0-9/+=]{20,}"),
 )
