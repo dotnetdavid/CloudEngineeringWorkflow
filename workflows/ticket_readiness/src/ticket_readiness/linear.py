@@ -64,6 +64,7 @@ _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+_LINEAR_IDENTIFIER_PATTERN = re.compile(r"^[A-Z0-9]+-[0-9]+$")
 
 
 class LinearReadError(RuntimeError):
@@ -206,6 +207,10 @@ def normalize_issue(raw_issue: dict[str, Any]) -> LinearIssue:
     identifier = str(raw_issue.get("identifier") or raw_issue.get("id") or "").strip()
     if not identifier:
         raise LinearReadError("Linear issue payload is missing both identifier and id.")
+    if not _LINEAR_IDENTIFIER_PATTERN.match(identifier):
+        raise LinearReadError(
+            f"Invalid Linear issue identifier: {identifier}. Expected format like ASG-40."
+        )
 
     return LinearIssue(
         identifier=identifier,

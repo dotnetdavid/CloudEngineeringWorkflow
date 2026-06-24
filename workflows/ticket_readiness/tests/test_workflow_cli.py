@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from ticket_readiness.approvals import write_approval_template
 from ticket_readiness.artifacts import ArtifactStore
 from ticket_readiness.cli import main
@@ -118,6 +120,27 @@ def test_run_analysis_enforces_configured_max_issue_count(tmp_path, capsys):
     summary = (run / "summary.md").read_text(encoding="utf-8")
     assert "exceeds configured max_issues" in summary
     assert not (run / "inputs" / "issues" / "ASG-40.json").exists()
+
+
+@pytest.mark.parametrize("issue_id", ["../ASG-40", "ASG/40", "asg-40", "ASG-abc"])
+def test_run_analysis_rejects_invalid_fixture_issue_identifier_before_artifact_writes(
+    tmp_path,
+    capsys,
+    issue_id,
+):
+    config = _config(tmp_path)
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps([{"id": issue_id, "title": "Unsafe ticket", "description": "Acceptance Criteria: done"}]),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 1
+    assert "Invalid Linear issue identifier" in capsys.readouterr().out
+    run = next((tmp_path / "runs").iterdir())
+    assert not any((run / "inputs" / "issues").iterdir())
 
 
 def test_run_analysis_records_openai_rate_limit_failures(tmp_path, monkeypatch):
