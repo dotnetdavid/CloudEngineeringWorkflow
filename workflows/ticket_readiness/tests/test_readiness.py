@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ticket_readiness.linear import LinearIssue, LinearPriority
-from ticket_readiness.readiness import evaluate_issue
+from ticket_readiness.readiness import CustomCheck, evaluate_issue
 
 
 def test_readyish_infrastructure_ticket_has_expected_signals():
@@ -124,6 +124,83 @@ def test_high_risk_flags_include_database_and_broad_network_access():
         _risk_codes(result)
     )
     assert "rollback_recovery" in _missing_dimensions(result)
+
+
+def test_custom_required_check_adds_missing_dimension_without_disabling_defaults():
+    issue = _issue(
+        "ASG-49",
+        "Deploy sandbox route table update",
+        """
+        Update the sandbox route table so that private workers use the S3 VPC
+        endpoint.
+
+        Acceptance Criteria:
+        - Terraform updates the target route table.
+        Validation: verify S3 access from a private worker.
+        Rollback: revert the Terraform change.
+        """,
+        priority=2,
+        estimate=3,
+    )
+
+    result = evaluate_issue(
+        issue,
+        custom_checks=[
+            CustomCheck(
+                dimension="change_window",
+                patterns=(r"\bchange window\b", r"\bmaintenance window\b"),
+                present_message="Change window signal is present.",
+                missing_message="Change window is missing.",
+                required=True,
+            )
+        ],
+    )
+
+    assert "acceptance_criteria" not in _missing_dimensions(result)
+    change_window = next(
+        finding for finding in result.findings if finding.dimension == "change_window"
+    )
+    assert change_window.status == "missing"
+    assert change_window.required
+    assert change_window.message == "Change window is missing."
+
+
+def test_custom_optional_check_records_present_signal_when_available():
+    issue = _issue(
+        "ASG-50",
+        "Deploy sandbox route table update during maintenance window",
+        """
+        Update the sandbox route table during the maintenance window so that
+        private workers use the S3 VPC endpoint.
+
+        Acceptance Criteria:
+        - Terraform updates the target route table.
+        Validation: verify S3 access from a private worker.
+        Rollback: revert the Terraform change.
+        """,
+        priority=2,
+        estimate=3,
+    )
+
+    result = evaluate_issue(
+        issue,
+        custom_checks=[
+            CustomCheck(
+                dimension="change_window",
+                patterns=(r"\bchange window\b", r"\bmaintenance window\b"),
+                present_message="Change window signal is present.",
+                missing_message="Change window is missing.",
+                required=False,
+            )
+        ],
+    )
+
+    change_window = next(
+        finding for finding in result.findings if finding.dimension == "change_window"
+    )
+    assert change_window.status == "present"
+    assert not change_window.required
+    assert change_window.evidence == ("maintenance window",)
 
 
 def _issue(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 from ticket_readiness.linear import LinearIssue
 
@@ -34,6 +34,19 @@ class RiskFlag:
         return payload
 
 
+class ReadinessConfigError(ValueError):
+    """Raised when readiness customization is invalid."""
+
+
+@dataclass(frozen=True)
+class CustomCheck:
+    dimension: str
+    patterns: tuple[str, ...]
+    present_message: str
+    missing_message: str
+    required: bool = True
+
+
 @dataclass(frozen=True)
 class DeterministicReadinessResult:
     issue_id: str
@@ -52,7 +65,11 @@ class DeterministicReadinessResult:
         }
 
 
-def evaluate_issue(issue: LinearIssue) -> DeterministicReadinessResult:
+def evaluate_issue(
+    issue: LinearIssue,
+    *,
+    custom_checks: Iterable[CustomCheck] = (),
+) -> DeterministicReadinessResult:
     text = _issue_text(issue)
     risk_flags = tuple(_risk_flags(text))
     work_type = _work_type(text, risk_flags)
@@ -190,6 +207,7 @@ def evaluate_issue(issue: LinearIssue) -> DeterministicReadinessResult:
             required=False,
         ),
     ]
+    findings.extend(_custom_findings(text, custom_checks))
 
     trivially_incomplete = not issue.title.strip() or len(issue.description.strip()) < 20
 
@@ -200,6 +218,22 @@ def evaluate_issue(issue: LinearIssue) -> DeterministicReadinessResult:
         risk_flags=risk_flags,
         trivially_incomplete=trivially_incomplete,
     )
+
+
+def load_custom_checks(config: dict[str, Any]) -> tuple[CustomCheck, ...]:
+    readiness_config = config.get("readiness")
+    if readiness_config is None:
+        return ()
+    if not isinstance(readiness_config, dict):
+        raise ReadinessConfigError("readiness config must be a mapping.")
+
+    raw_checks = readiness_config.get("custom_checks", [])
+    if raw_checks is None:
+        return ()
+    if not isinstance(raw_checks, list):
+        raise ReadinessConfigError("readiness.custom_checks must be a list.")
+
+    return tuple(_custom_check_from_config(index, raw_check) for index, raw_check in enumerate(raw_checks))
 
 
 def _presence(
@@ -254,6 +288,23 @@ def _conditional_signal(
             required=False,
         )
     return _signal(dimension, text, patterns, present_message, missing_message)
+
+
+def _custom_findings(
+    text: str,
+    custom_checks: Iterable[CustomCheck],
+) -> list[DeterministicFinding]:
+    return [
+        _signal(
+            check.dimension,
+            text,
+            check.patterns,
+            check.present_message,
+            check.missing_message,
+            required=check.required,
+        )
+        for check in custom_checks
+    ]
 
 
 def _risk_flags(text: str) -> list[RiskFlag]:
@@ -350,3 +401,56 @@ _HIGH_INFRA_RISKS = {
     "security_group_change",
     "broad_network_access",
 }
+
+
+def _custom_check_from_config(index: int, raw_check: Any) -> CustomCheck:
+    if not isinstance(raw_check, dict):
+        raise ReadinessConfigError(f"readiness.custom_checks[{index}] must be a mapping.")
+
+    dimension = _required_config_string(raw_check, "dimension", index)
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", dimension):
+        raise ReadinessConfigError(
+            f"readiness.custom_checks[{index}].dimension must use lowercase letters, numbers, and underscores."
+        )
+
+    patterns = raw_check.get("patterns")
+    if not isinstance(patterns, list) or not patterns:
+        raise ReadinessConfigError(f"readiness.custom_checks[{index}].patterns must be a non-empty list.")
+    pattern_values = tuple(_pattern_string(pattern, index) for pattern in patterns)
+
+    for pattern in pattern_values:
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise ReadinessConfigError(
+                f"readiness.custom_checks[{index}] contains invalid regex: {pattern}"
+            ) from exc
+
+    required = raw_check.get("required", True)
+    if not isinstance(required, bool):
+        raise ReadinessConfigError(f"readiness.custom_checks[{index}].required must be true or false.")
+
+    return CustomCheck(
+        dimension=dimension,
+        patterns=pattern_values,
+        present_message=str(
+            raw_check.get("present_message") or f"{dimension} signal is present."
+        ),
+        missing_message=str(raw_check.get("missing_message") or f"{dimension} signal is missing."),
+        required=required,
+    )
+
+
+def _required_config_string(raw_check: dict[str, Any], key: str, index: int) -> str:
+    value = raw_check.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ReadinessConfigError(f"readiness.custom_checks[{index}].{key} must be a non-empty string.")
+    return value.strip()
+
+
+def _pattern_string(pattern: Any, index: int) -> str:
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ReadinessConfigError(
+            f"readiness.custom_checks[{index}].patterns entries must be non-empty strings."
+        )
+    return pattern
