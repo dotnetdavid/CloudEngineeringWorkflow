@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
 from ticket_readiness.linear import LinearIssue
+from ticket_readiness.rate_limit import RateLimitError
 from ticket_readiness.readiness import DeterministicReadinessResult
 from ticket_readiness.security import contains_secret_like_value
 
@@ -50,6 +51,11 @@ class OpenAIResponseClient(Protocol):
         """Create an OpenAI response."""
 
 
+class RateLimiter(Protocol):
+    def wait(self) -> None:
+        """Throttle before an external API call."""
+
+
 @dataclass(frozen=True)
 class LLMAnalysis:
     summary: str
@@ -78,10 +84,12 @@ class HTTPOpenAIClient:
         api_key: str | None = None,
         endpoint: str = OPENAI_RESPONSES_ENDPOINT,
         timeout_seconds: int = 60,
+        rate_limiter: RateLimiter | None = None,
     ) -> None:
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self._endpoint = endpoint
         self._timeout_seconds = timeout_seconds
+        self._rate_limiter = rate_limiter
 
     def create_response(self, **kwargs: Any) -> dict[str, Any]:
         if not self._api_key:
@@ -98,9 +106,15 @@ class HTTPOpenAIClient:
         )
 
         try:
+            if self._rate_limiter is not None:
+                self._rate_limiter.wait()
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 response_body = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise LLMAnalysisError("OpenAI response request was rate limited.") from RateLimitError(
+                    "OpenAI response request was rate limited."
+                )
             detail = exc.read().decode("utf-8", errors="replace")[:500]
             raise LLMAnalysisError(
                 f"OpenAI response request failed with HTTP {exc.code}: {detail}"

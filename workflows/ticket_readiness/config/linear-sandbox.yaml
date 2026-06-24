@@ -1,6 +1,9 @@
 workspace: Asgard AI Agency
 team: Asgard AI Agency
 team_key: ASG
+max_issues: 25
+api_rate_limit:
+  min_interval_seconds: 1.0
 project:
   name: AI Workflow Sandbox - Ticket Readiness
   id: 8ff212c4-dfc7-4152-88e0-3dd65723a420
@@ -25,4 +28,3 @@ write_back:
     - automatic_status_change
     - automatic_issue_rewrite
     - automatic_assignment
-

@@ -6,6 +6,7 @@ from pathlib import Path
 from ticket_readiness.approvals import write_approval_template
 from ticket_readiness.artifacts import ArtifactStore
 from ticket_readiness.cli import main
+from ticket_readiness.llm_analysis import LLMAnalysisError
 
 
 def test_run_analysis_fixture_mode_creates_artifacts(tmp_path):
@@ -94,6 +95,50 @@ def test_run_analysis_rejects_traversal_artifact_root_before_writing(tmp_path, c
     assert exit_code == 1
     assert "artifact_root must not contain parent traversal" in capsys.readouterr().out
     assert not (tmp_path.parent / "sensitive").exists()
+
+
+def test_run_analysis_enforces_configured_max_issue_count(tmp_path, capsys):
+    config = _config(tmp_path, max_issues=1)
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {"id": "ASG-40", "title": "First ticket", "description": "Acceptance Criteria: done"},
+                {"id": "ASG-41", "title": "Second ticket", "description": "Acceptance Criteria: done"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 1
+    assert "exceeds configured max_issues" in capsys.readouterr().out
+    run = next((tmp_path / "runs").iterdir())
+    summary = (run / "summary.md").read_text(encoding="utf-8")
+    assert "exceeds configured max_issues" in summary
+    assert not (run / "inputs" / "issues" / "ASG-40.json").exists()
+
+
+def test_run_analysis_records_openai_rate_limit_failures(tmp_path, monkeypatch):
+    config = _config(tmp_path)
+    fixture = _fixture(tmp_path)
+
+    class RateLimitedOpenAIClient:
+        def create_response(self, **kwargs):
+            raise LLMAnalysisError("OpenAI response request was rate limited.")
+
+    monkeypatch.setattr("ticket_readiness.workflow.HTTPOpenAIClient", lambda rate_limiter=None: RateLimitedOpenAIClient())
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture)])
+
+    assert exit_code == 0
+    run = next((tmp_path / "runs").iterdir())
+    events = (run / "events.jsonl").read_text(encoding="utf-8")
+    summary = (run / "summary.md").read_text(encoding="utf-8")
+    assert "issue_analysis_failed" in events
+    assert "OpenAI response request was rate limited." in events
+    assert "OpenAI response request was rate limited." in summary
 
 
 def test_validate_approvals_command_blocks_default_skipped_template(tmp_path):
@@ -238,27 +283,30 @@ def _config(
     tmp_path: Path,
     *,
     artifact_root: str | None = None,
+    max_issues: int | None = None,
     write_back_enabled: bool = False,
 ) -> Path:
-    path = tmp_path / "config.yaml"
-    path.write_text(
-        "\n".join(
-            [
-                "workspace: Asgard AI Agency",
-                "team: Asgard AI Agency",
-                "team_key: ASG",
-                "artifact_root: " + (artifact_root or "runs"),
-                "project:",
-                "  name: AI Workflow Sandbox - Ticket Readiness",
-                "  id: project-123",
-                "  url: https://linear.app/asgard-ai-agency/project/project-123",
-                "write_back:",
-                f"  enabled: {str(write_back_enabled).lower()}",
-                "  requires_human_approval: true",
-            ]
-        ),
-        encoding="utf-8",
+    lines = [
+        "workspace: Asgard AI Agency",
+        "team: Asgard AI Agency",
+        "team_key: ASG",
+        "artifact_root: " + (artifact_root or "runs"),
+    ]
+    if max_issues is not None:
+        lines.append(f"max_issues: {max_issues}")
+    lines.extend(
+        [
+            "project:",
+            "  name: AI Workflow Sandbox - Ticket Readiness",
+            "  id: project-123",
+            "  url: https://linear.app/asgard-ai-agency/project/project-123",
+            "write_back:",
+            f"  enabled: {str(write_back_enabled).lower()}",
+            "  requires_human_approval: true",
+        ]
     )
+    path = tmp_path / "config.yaml"
+    path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
 

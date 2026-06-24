@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from io import BytesIO
+import urllib.error
+
 import pytest
 
 from ticket_readiness.llm_analysis import (
@@ -111,6 +114,45 @@ def test_http_openai_client_reads_api_key_from_environment(monkeypatch):
     assert captured["timeout"] == 12
 
 
+def test_http_openai_client_throttles_before_request(monkeypatch):
+    limiter = FakeRateLimiter()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"output_text": "{}"}'
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: FakeResponse())
+
+    HTTPOpenAIClient(api_key="openai-key", rate_limiter=limiter).create_response(
+        model="gpt-5-mini",
+        input=[],
+    )
+
+    assert limiter.calls == 1
+
+
+def test_http_openai_client_reports_rate_limit(monkeypatch):
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            429,
+            "Too Many Requests",
+            hdrs={},
+            fp=BytesIO(b'{"error":"slow down"}'),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(LLMAnalysisError, match="rate limited"):
+        HTTPOpenAIClient(api_key="openai-key").create_response(model="gpt-5-mini", input=[])
+
+
 def _issue() -> LinearIssue:
     return LinearIssue(
         identifier="ASG-40",
@@ -154,3 +196,11 @@ class FakeOpenAIClient:
     def create_response(self, **kwargs):
         self.calls.append(kwargs)
         return self._response
+
+
+class FakeRateLimiter:
+    def __init__(self):
+        self.calls = 0
+
+    def wait(self) -> None:
+        self.calls += 1
