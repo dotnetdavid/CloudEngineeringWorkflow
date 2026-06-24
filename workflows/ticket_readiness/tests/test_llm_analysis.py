@@ -153,6 +153,17 @@ def test_http_openai_client_reports_rate_limit(monkeypatch):
         HTTPOpenAIClient(api_key="openai-key").create_response(model="gpt-5-mini", input=[])
 
 
+@pytest.mark.parametrize("timeout_seconds", [0, -1, 301])
+def test_http_openai_client_rejects_invalid_timeout(timeout_seconds):
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        HTTPOpenAIClient(api_key="openai-key", timeout_seconds=timeout_seconds)
+
+
+@pytest.mark.parametrize("timeout_seconds", [1, 300])
+def test_http_openai_client_accepts_valid_timeout(timeout_seconds):
+    HTTPOpenAIClient(api_key="openai-key", timeout_seconds=timeout_seconds)
+
+
 def _issue() -> LinearIssue:
     return LinearIssue(
         identifier="ASG-40",

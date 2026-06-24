@@ -9,6 +9,7 @@ from typing import Any, Protocol
 
 from ticket_readiness.approvals import ApprovalError, validate_approval_record
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
+from ticket_readiness.http_config import validate_timeout_seconds
 from ticket_readiness.linear import LINEAR_GRAPHQL_ENDPOINT
 
 CREATE_COMMENT_MUTATION = """
@@ -49,7 +50,7 @@ class HTTPLinearCommentClient:
     ) -> None:
         self._api_key = api_key or os.environ.get("LINEAR_API_KEY")
         self._endpoint = endpoint
-        self._timeout_seconds = timeout_seconds
+        self._timeout_seconds = validate_timeout_seconds(timeout_seconds)
 
     def create_comment(self, *, issue_id: str, body: str) -> dict[str, Any]:
         if not self._api_key:
