@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -100,3 +102,53 @@ def test_create_run_fails_closed_when_root_cannot_be_created(tmp_path):
             linear_project_url="https://linear.app/asgard-ai-agency/project/project-123",
             nonce="aaaabbbb",
         )
+
+
+def test_create_run_does_not_expose_partial_final_run_on_setup_failure(tmp_path, monkeypatch):
+    root = tmp_path / "runs"
+    expected_run_id = "2026-06-22T180000Z-asgard-sandbox-aaaabbbb"
+    original_write_text = Path.write_text
+
+    def failing_manifest_write(path, data, *args, **kwargs):
+        if path.name == "manifest.json":
+            raise OSError("disk hiccup")
+        return original_write_text(path, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", failing_manifest_write)
+
+    with pytest.raises(ArtifactWriteError):
+        ArtifactStore(root).create_run(
+            workflow_name="ticket-readiness",
+            workflow_version="0.1.0",
+            source="asgard-sandbox",
+            linear_project_id="project-123",
+            linear_project_url="https://linear.app/asgard-ai-agency/project/project-123",
+            now=datetime(2026, 6, 22, 18, 0, tzinfo=UTC),
+            nonce="aaaabbbb",
+        )
+
+    assert not (root / expected_run_id).exists()
+
+
+def test_concurrent_run_creation_writes_distinct_intact_runs(tmp_path):
+    store = ArtifactStore(tmp_path / "runs")
+
+    def create_run(index: int):
+        return store.create_run(
+            workflow_name="ticket-readiness",
+            workflow_version="0.1.0",
+            source="asgard-sandbox",
+            linear_project_id="project-123",
+            linear_project_url="https://linear.app/asgard-ai-agency/project/project-123",
+            now=datetime(2026, 6, 22, 18, 0, tzinfo=UTC),
+            nonce=f"nonce-{index}",
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        runs = list(executor.map(create_run, range(16)))
+
+    assert len({run.run_id for run in runs}) == 16
+    for run in runs:
+        assert run.path("manifest.json").is_file()
+        assert run.path("events.jsonl").is_file()
+        assert run.path("inputs", "issues").is_dir()

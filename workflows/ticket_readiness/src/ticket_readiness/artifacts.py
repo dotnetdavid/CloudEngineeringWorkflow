@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -81,13 +82,14 @@ class ArtifactStore:
     ) -> RunArtifacts:
         run_id = generate_run_id(source, now=now, nonce=nonce)
         run_root = _contained_path(self._root, run_id)
+        staged_root = _contained_path(self._root, f".{run_id}.creating-{uuid.uuid4().hex[:8]}")
 
         try:
             self._root.mkdir(parents=True, exist_ok=True)
-            run_root.mkdir()
+            staged_root.mkdir()
             for directory in _RUN_DIRECTORIES:
-                _contained_path(run_root, directory).mkdir(parents=True, exist_ok=True)
-            _contained_path(run_root, "events.jsonl").touch(exist_ok=False)
+                _contained_path(staged_root, directory).mkdir(parents=True, exist_ok=True)
+            _contained_path(staged_root, "events.jsonl").touch(exist_ok=False)
             manifest = _manifest(
                 run_id=run_id,
                 workflow_name=workflow_name,
@@ -97,11 +99,14 @@ class ArtifactStore:
                 linear_project_url=linear_project_url,
                 started_at=_timestamp(now),
             )
-            _contained_path(run_root, "manifest.json").write_text(
+            _contained_path(staged_root, "manifest.json").write_text(
                 json.dumps(manifest, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            staged_root.rename(run_root)
         except OSError as exc:
+            if staged_root.exists():
+                shutil.rmtree(staged_root, ignore_errors=True)
             raise ArtifactWriteError(f"Failed to create run artifacts: {run_id}") from exc
 
         return RunArtifacts(run_id=run_id, root=run_root)
