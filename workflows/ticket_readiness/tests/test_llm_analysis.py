@@ -84,6 +84,27 @@ def test_adapter_records_model_metadata_from_mock_client():
     assert client.calls[0]["text"]["format"]["type"] == "json_schema"
 
 
+def test_adapter_preserves_model_latency_metadata_when_available():
+    client = FakeOpenAIClient(
+        {
+            "output_text": _valid_output_json(),
+            "id": "resp_123",
+            "model": "gpt-5-mini",
+            "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150},
+            "latency_ms": 817,
+        }
+    )
+    adapter = LLMAnalysisAdapter(client=client, model="gpt-5-mini")
+
+    result = adapter.analyze(
+        issue=_issue(),
+        rubric={"statuses": {"ready": {}, "needs_grooming": {}, "blocked": {}, "not_ready": {}}},
+        deterministic_result=evaluate_issue(_issue()),
+    )
+
+    assert result.model_metadata["latency_ms"] == 817
+
+
 def test_http_openai_client_reads_api_key_from_environment(monkeypatch):
     captured = {}
 

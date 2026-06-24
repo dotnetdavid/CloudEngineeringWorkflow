@@ -294,6 +294,8 @@ def _with_metadata(analysis: LLMAnalysis, response: dict[str, Any]) -> LLMAnalys
         "response_id": response.get("id"),
         "model": response.get("model"),
         "usage": response.get("usage"),
+        "latency_ms": response.get("latency_ms"),
+        "latency_seconds": response.get("latency_seconds"),
     }
     return LLMAnalysis(
         summary=analysis.summary,
