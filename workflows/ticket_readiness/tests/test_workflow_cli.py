@@ -125,6 +125,54 @@ def test_run_analysis_records_multi_issue_progress_and_preserves_summary_order(t
     assert summary.index("ASG-40 First ticket") < summary.index("ASG-41 Second ticket")
 
 
+def test_run_analysis_loads_custom_readiness_checks_from_config(tmp_path):
+    config = _config(
+        tmp_path,
+        extra_lines=[
+            "readiness:",
+            "  custom_checks:",
+            "    - dimension: change_window",
+            "      required: true",
+            "      patterns:",
+            "        - '\\bchange window\\b'",
+            "        - '\\bmaintenance window\\b'",
+            "      present_message: Change window signal is present.",
+            "      missing_message: Change window is missing.",
+        ],
+    )
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "ASG-40",
+                    "title": "Add S3 VPC endpoint",
+                    "description": (
+                        "Create a VPC endpoint in sandbox so that workers avoid NAT. "
+                        "Acceptance Criteria: endpoint exists. Validation: verify S3 access. "
+                        "Rollback: revert Terraform."
+                    ),
+                    "priority": {"value": 2, "name": "High"},
+                    "estimate": 3,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 0
+    run = next((tmp_path / "runs").iterdir())
+    report = json.loads((run / "reports" / "ASG-40-readiness.json").read_text(encoding="utf-8"))
+    custom_finding = next(
+        finding for finding in report["deterministic_findings"] if finding["dimension"] == "change_window"
+    )
+    assert custom_finding["status"] == "missing"
+    assert custom_finding["required"] is True
+    assert custom_finding["message"] == "Change window is missing."
+
+
 def test_run_analysis_rejects_absolute_artifact_root_before_writing(tmp_path, capsys):
     rejected_root = tmp_path / "absolute-artifact-root"
     config = _config(tmp_path, artifact_root=str(rejected_root))
@@ -392,6 +440,7 @@ def _config(
     artifact_root: str | None = None,
     max_issues: int | None = None,
     write_back_enabled: bool = False,
+    extra_lines: list[str] | None = None,
 ) -> Path:
     lines = [
         "workspace: Asgard AI Agency",
@@ -412,6 +461,8 @@ def _config(
             "  requires_human_approval: true",
         ]
     )
+    if extra_lines:
+        lines.extend(extra_lines)
     path = tmp_path / "config.yaml"
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

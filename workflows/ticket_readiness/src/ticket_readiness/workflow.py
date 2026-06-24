@@ -15,7 +15,12 @@ from ticket_readiness.llm_analysis import (
     validate_model_output,
 )
 from ticket_readiness.rate_limit import FixedDelayRateLimiter
-from ticket_readiness.readiness import DeterministicReadinessResult, evaluate_issue
+from ticket_readiness.readiness import (
+    DeterministicReadinessResult,
+    ReadinessConfigError,
+    evaluate_issue,
+    load_custom_checks,
+)
 from ticket_readiness.reports import IssueReport, generate_issue_report
 from ticket_readiness.summary import SummaryIssue, generate_run_summary
 from ticket_readiness.writeback import HTTPLinearCommentClient, LinearCommentWriteBack, WriteBackError
@@ -53,6 +58,13 @@ def run_analysis(
     summary_issues: list[SummaryIssue] = []
     errors: list[str] = []
     rubric = _default_rubric()
+    try:
+        custom_checks = load_custom_checks(config)
+    except ReadinessConfigError as exc:
+        message = str(exc)
+        run.append_event(event_type="readiness_config_failed", state="failed", message=message)
+        generate_run_summary(run=run, issues=[], errors=[message])
+        raise WorkflowError(message) from exc
 
     total_issues = len(issues)
     for index, issue in enumerate(issues, start=1):
@@ -64,7 +76,7 @@ def run_analysis(
         )
         try:
             run.write_json(f"inputs/issues/{issue.identifier}.json", issue.to_dict())
-            deterministic = evaluate_issue(issue)
+            deterministic = evaluate_issue(issue, custom_checks=custom_checks)
             analysis = (
                 _mock_analysis(issue, deterministic)
                 if mock_llm

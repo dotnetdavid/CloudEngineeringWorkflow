@@ -132,6 +132,38 @@ export OPENAI_API_KEY=...
 The command prints the run ID. Artifacts are written under `runs/<run-id>/` by
 default, or under `artifact_root` when configured.
 
+## Readiness Customization
+
+The default deterministic readiness checks always remain enabled. V1 supports
+additive custom regex checks from the YAML config when a team wants to require
+extra ticket signals.
+
+Example:
+
+```yaml
+readiness:
+  custom_checks:
+    - dimension: change_window
+      required: true
+      patterns:
+        - "\\bchange window\\b"
+        - "\\bmaintenance window\\b"
+      present_message: Change window signal is present.
+      missing_message: Change window is missing.
+```
+
+Supported boundaries:
+
+- custom checks add deterministic findings; they do not replace built-in checks.
+- `dimension` must use lowercase letters, numbers, and underscores.
+- `patterns` are Python regular expressions evaluated against issue title and
+  description.
+- `required` controls whether a missing custom signal affects readiness scoring.
+- custom config does not change work type detection, risk flags, model prompts,
+  write-back behavior, or artifact layout.
+- treat custom check config as trusted local operator input; do not load it from
+  tickets, comments, or untrusted external files.
+
 ## API Guardrails
 
 Live runs use two configuration guardrails before calling external APIs:
