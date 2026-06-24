@@ -67,11 +67,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_analysis(args: argparse.Namespace) -> int:
-    run_id = run_analysis(
-        config_path=args.config,
-        fixture_data=args.fixture_data,
-        mock_llm=args.mock_llm,
-    )
+    try:
+        run_id = run_analysis(
+            config_path=args.config,
+            fixture_data=args.fixture_data,
+            mock_llm=args.mock_llm,
+        )
+    except WorkflowError as exc:
+        print(str(exc))
+        return 1
     print(f"Run created: {run_id}")
     return 0
 
