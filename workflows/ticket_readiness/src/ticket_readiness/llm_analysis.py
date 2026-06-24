@@ -8,6 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
+from ticket_readiness.http_config import validate_timeout_seconds
 from ticket_readiness.linear import LinearIssue
 from ticket_readiness.rate_limit import RateLimitError
 from ticket_readiness.readiness import DeterministicReadinessResult
@@ -88,7 +89,7 @@ class HTTPOpenAIClient:
     ) -> None:
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self._endpoint = endpoint
-        self._timeout_seconds = timeout_seconds
+        self._timeout_seconds = validate_timeout_seconds(timeout_seconds)
         self._rate_limiter = rate_limiter
 
     def create_response(self, **kwargs: Any) -> dict[str, Any]:

@@ -8,6 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
+from ticket_readiness.http_config import validate_timeout_seconds
 from ticket_readiness.rate_limit import RateLimitError
 
 LINEAR_GRAPHQL_ENDPOINT = "https://api.linear.app/graphql"
@@ -121,7 +122,7 @@ class LinearGraphQLClient:
     ) -> None:
         self._api_key = api_key or os.environ.get("LINEAR_API_KEY")
         self._endpoint = endpoint
-        self._timeout_seconds = timeout_seconds
+        self._timeout_seconds = validate_timeout_seconds(timeout_seconds)
         self._rate_limiter = rate_limiter
 
     def execute(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:

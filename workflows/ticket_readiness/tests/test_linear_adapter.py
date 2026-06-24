@@ -120,6 +120,17 @@ def test_http_linear_client_reports_rate_limit(monkeypatch):
         LinearGraphQLClient(api_key="linear-key").execute("query {}", {})
 
 
+@pytest.mark.parametrize("timeout_seconds", [0, -1, 301])
+def test_http_linear_client_rejects_invalid_timeout(timeout_seconds):
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        LinearGraphQLClient(api_key="linear-key", timeout_seconds=timeout_seconds)
+
+
+@pytest.mark.parametrize("timeout_seconds", [1, 300])
+def test_http_linear_client_accepts_valid_timeout(timeout_seconds):
+    LinearGraphQLClient(api_key="linear-key", timeout_seconds=timeout_seconds)
+
+
 class FakeLinearClient:
     def __init__(self, responses: list[dict]):
         self._responses = responses

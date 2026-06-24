@@ -7,7 +7,7 @@ import pytest
 
 from ticket_readiness.approvals import write_approval_template
 from ticket_readiness.artifacts import ArtifactStore
-from ticket_readiness.writeback import LinearCommentWriteBack, WriteBackError
+from ticket_readiness.writeback import HTTPLinearCommentClient, LinearCommentWriteBack, WriteBackError
 
 
 def test_writeback_posts_only_after_valid_approval_and_records_comment_id(tmp_path):
@@ -65,6 +65,17 @@ def test_writeback_client_only_exposes_comment_creation():
     assert not hasattr(LinearCommentWriteBack, "update_status")
     assert not hasattr(LinearCommentWriteBack, "update_priority")
     assert not hasattr(LinearCommentWriteBack, "update_description")
+
+
+@pytest.mark.parametrize("timeout_seconds", [0, -1, 301])
+def test_http_comment_client_rejects_invalid_timeout(timeout_seconds):
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        HTTPLinearCommentClient(api_key="linear-key", timeout_seconds=timeout_seconds)
+
+
+@pytest.mark.parametrize("timeout_seconds", [1, 300])
+def test_http_comment_client_accepts_valid_timeout(timeout_seconds):
+    HTTPLinearCommentClient(api_key="linear-key", timeout_seconds=timeout_seconds)
 
 
 def _approved_run(tmp_path: Path):
