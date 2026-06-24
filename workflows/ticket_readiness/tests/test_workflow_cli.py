@@ -111,6 +111,74 @@ def test_validate_approvals_command_blocks_default_skipped_template(tmp_path):
     assert exit_code == 1
 
 
+def test_summarize_run_reconstructs_existing_issue_artifacts(tmp_path):
+    config = _config(tmp_path)
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "ASG-40",
+                    "title": "Add S3 VPC endpoint for private artifact bucket access",
+                    "description": (
+                        "Create a VPC endpoint so that private workers can reach S3. "
+                        "Acceptance Criteria: endpoint exists. Validation: verify S3 access. "
+                        "Rollback: revert Terraform. Security: no public ingress."
+                    ),
+                    "priority": {"value": 2, "name": "High"},
+                    "estimate": 3,
+                    "url": "https://linear.app/asgard-ai-agency/issue/ASG-40/example",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"]) == 0
+    run = next((tmp_path / "runs").iterdir())
+    (run / "summary.md").write_text("stale empty summary\n", encoding="utf-8")
+
+    exit_code = main(["--config", str(config), "summarize-run", "--run", run.name])
+
+    assert exit_code == 0
+    summary = (run / "summary.md").read_text(encoding="utf-8")
+    assert "Total Issues: 1" in summary
+    assert "ASG-40 Add S3 VPC endpoint for private artifact bucket access" in summary
+    assert "reports/ASG-40-readiness.md" in summary
+    assert "drafts/ASG-40-linear-comment.md" in summary
+    assert "not_attempted" in summary
+
+
+def test_summarize_run_preserves_issue_errors_from_events(tmp_path):
+    config = _config(tmp_path)
+    run = ArtifactStore(tmp_path / "runs").create_run(
+        workflow_name="ticket-readiness",
+        workflow_version="0.1.0",
+        source="asgard-sandbox",
+        linear_project_id="project-123",
+        linear_project_url="https://linear.app/asgard-ai-agency/project/project-123",
+        nonce="aaaabbbb",
+    )
+    run.write_json(
+        "inputs/issues/ASG-41.json",
+        {"identifier": "ASG-41", "title": "Vague production ticket"},
+    )
+    run.append_event(
+        event_type="issue_analysis_failed",
+        state="failed",
+        issue_id="ASG-41",
+        message="LLM analysis failed.",
+    )
+
+    exit_code = main(["--config", str(config), "summarize-run", "--run", run.run_id])
+
+    assert exit_code == 0
+    summary = run.path("summary.md").read_text(encoding="utf-8")
+    assert "Total Issues: 1" in summary
+    assert "ASG-41 Vague production ticket" in summary
+    assert "analysis_failed" in summary
+    assert "LLM analysis failed." in summary
+
+
 def test_post_approved_refuses_when_write_back_disabled(tmp_path, capsys):
     config = _config(tmp_path)
     run_id = _approved_run(tmp_path, issue_id="ASG-40")
