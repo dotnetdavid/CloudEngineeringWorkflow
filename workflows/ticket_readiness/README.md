@@ -147,6 +147,13 @@ HTTP 429 responses from Linear or OpenAI are reported as rate-limit failures.
 OpenAI per-issue rate-limit failures are recorded in `events.jsonl` and
 `summary.md` for review.
 
+Issue analysis is intentionally sequential in V1. Bounded concurrency is
+deferred until the workflow has explicit client-level retry behavior and
+concurrency-safe artifact/write-back guarantees. During multi-issue runs, the
+workflow emits `issue_progress` records to `events.jsonl` and structured stderr
+logs before each issue is processed. These records include the issue ID and
+position, such as `Processing issue 2 of 5.`
+
 The CLI emits structured JSON log records to stderr for major workflow phases
 and failures. Records include `severity`, `event_type`, `state`, and `run_id`
 when a run has been created; issue-level records also include `issue_id`.

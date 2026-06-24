@@ -54,7 +54,14 @@ def run_analysis(
     errors: list[str] = []
     rubric = _default_rubric()
 
-    for issue in issues:
+    total_issues = len(issues)
+    for index, issue in enumerate(issues, start=1):
+        run.append_event(
+            event_type="issue_progress",
+            state="running",
+            issue_id=issue.identifier,
+            message=f"Processing issue {index} of {total_issues}.",
+        )
         try:
             run.write_json(f"inputs/issues/{issue.identifier}.json", issue.to_dict())
             deterministic = evaluate_issue(issue)
