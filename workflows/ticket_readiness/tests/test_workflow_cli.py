@@ -82,6 +82,49 @@ def test_run_analysis_emits_structured_logs_for_major_phases(tmp_path, capsys):
     )
 
 
+def test_run_analysis_records_multi_issue_progress_and_preserves_summary_order(tmp_path, capsys):
+    config = _config(tmp_path)
+    fixture = tmp_path / "issues.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {"id": "ASG-40", "title": "First ticket", "description": "Acceptance Criteria: done"},
+                {"id": "ASG-41", "title": "Second ticket", "description": "Acceptance Criteria: done"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 0
+    run = next((tmp_path / "runs").iterdir())
+    events = [
+        json.loads(line)
+        for line in (run / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    progress_events = [event for event in events if event["event_type"] == "issue_progress"]
+    assert [
+        (event["issue_id"], event["state"], event["message"])
+        for event in progress_events
+    ] == [
+        ("ASG-40", "running", "Processing issue 1 of 2."),
+        ("ASG-41", "running", "Processing issue 2 of 2."),
+    ]
+
+    log_records = _json_stdout_records(capsys)
+    assert any(
+        record["event_type"] == "issue_progress"
+        and record["issue_id"] == "ASG-41"
+        and record["message"] == "Processing issue 2 of 2."
+        for record in log_records
+    )
+
+    summary = (run / "summary.md").read_text(encoding="utf-8")
+    assert summary.index("ASG-40 First ticket") < summary.index("ASG-41 Second ticket")
+
+
 def test_run_analysis_rejects_absolute_artifact_root_before_writing(tmp_path, capsys):
     rejected_root = tmp_path / "absolute-artifact-root"
     config = _config(tmp_path, artifact_root=str(rejected_root))
