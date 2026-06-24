@@ -147,6 +147,12 @@ HTTP 429 responses from Linear or OpenAI are reported as rate-limit failures.
 OpenAI per-issue rate-limit failures are recorded in `events.jsonl` and
 `summary.md` for review.
 
+The CLI emits structured JSON log records to stderr for major workflow phases
+and failures. Records include `severity`, `event_type`, `state`, and `run_id`
+when a run has been created; issue-level records also include `issue_id`.
+`events.jsonl` remains the durable run evidence, while stderr logs are intended
+for operator visibility and aggregation.
+
 ## Run Artifacts
 
 Each run folder should contain:

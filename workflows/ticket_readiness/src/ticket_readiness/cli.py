@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
+from ticket_readiness.logging import configure_logging, log_event
 from ticket_readiness.workflow import (
     WorkflowError,
     post_approved,
@@ -61,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    configure_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.handler(args)
@@ -74,6 +76,12 @@ def _run_analysis(args: argparse.Namespace) -> int:
             mock_llm=args.mock_llm,
         )
     except WorkflowError as exc:
+        log_event(
+            event_type="run_analysis_failed",
+            state="failed",
+            message=str(exc),
+            severity="error",
+        )
         print(str(exc))
         return 1
     print(f"Run created: {run_id}")

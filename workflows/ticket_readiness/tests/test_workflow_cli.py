@@ -58,6 +58,30 @@ def test_run_analysis_fixture_mode_creates_artifacts(tmp_path):
     assert (run / "summary.md").exists()
 
 
+def test_run_analysis_emits_structured_logs_for_major_phases(tmp_path, capsys):
+    config = _config(tmp_path)
+    fixture = _fixture(tmp_path)
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 0
+    log_records = _json_stdout_records(capsys)
+    run_id = next((tmp_path / "runs").iterdir()).name
+    assert any(
+        record["event_type"] == "run_completed"
+        and record["severity"] == "info"
+        and record["run_id"] == run_id
+        for record in log_records
+    )
+    assert any(
+        record["event_type"] == "issue_analyzed"
+        and record["severity"] == "info"
+        and record["run_id"] == run_id
+        and record["issue_id"] == "ASG-40"
+        for record in log_records
+    )
+
+
 def test_run_analysis_rejects_absolute_artifact_root_before_writing(tmp_path, capsys):
     rejected_root = tmp_path / "absolute-artifact-root"
     config = _config(tmp_path, artifact_root=str(rejected_root))
@@ -77,6 +101,23 @@ def test_run_analysis_rejects_absolute_artifact_root_before_writing(tmp_path, ca
     assert exit_code == 1
     assert "artifact_root must be project-relative" in capsys.readouterr().out
     assert not rejected_root.exists()
+
+
+def test_run_analysis_emits_structured_failure_log(tmp_path, capsys):
+    rejected_root = tmp_path / "absolute-artifact-root"
+    config = _config(tmp_path, artifact_root=str(rejected_root))
+    fixture = _fixture(tmp_path)
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 1
+    log_records = _json_stdout_records(capsys)
+    assert any(
+        record["event_type"] == "run_analysis_failed"
+        and record["severity"] == "error"
+        and "artifact_root must be project-relative" in record["message"]
+        for record in log_records
+    )
 
 
 def test_run_analysis_rejects_traversal_artifact_root_before_writing(tmp_path, capsys):
@@ -371,3 +412,12 @@ class FakeCommentClient:
     def create_comment(self, *, issue_id: str, body: str) -> dict:
         self.calls.append({"issue_id": issue_id, "body": body})
         return self._response
+
+
+def _json_stdout_records(capsys):
+    captured = capsys.readouterr()
+    return [
+        json.loads(line)
+        for line in (captured.out + "\n" + captured.err).splitlines()
+        if line.startswith("{")
+    ]
