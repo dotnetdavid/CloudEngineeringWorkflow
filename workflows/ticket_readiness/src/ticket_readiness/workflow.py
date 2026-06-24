@@ -126,6 +126,8 @@ def validate_approvals(*, config_path: Path, run_id: str) -> bool:
 
 def post_approved(*, config_path: Path, run_id: str, issue_id: str) -> bool:
     config = load_config(config_path)
+    if not _write_back_enabled(config):
+        raise WorkflowError("Linear write-back is disabled by config: write_back.enabled must be true.")
     run = _existing_run(config, run_id)
     draft_relative_path = f"drafts/{issue_id}-linear-comment.md"
     writer = LinearCommentWriteBack(client=HTTPLinearCommentClient())
@@ -158,6 +160,11 @@ def _create_run(config: dict[str, Any]) -> RunArtifacts:
 def _existing_run(config: dict[str, Any], run_id: str) -> RunArtifacts:
     root = Path(config.get("artifact_root", "runs")) / run_id
     return RunArtifacts(run_id=run_id, root=root)
+
+
+def _write_back_enabled(config: dict[str, Any]) -> bool:
+    write_back = config.get("write_back")
+    return isinstance(write_back, dict) and write_back.get("enabled") is True
 
 
 def _load_fixture_issues(path: Path | None) -> list[LinearIssue]:
