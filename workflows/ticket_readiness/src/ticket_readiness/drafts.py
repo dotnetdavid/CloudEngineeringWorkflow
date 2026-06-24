@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.linear import LinearIssue
 from ticket_readiness.llm_analysis import LLMAnalysis
 
 
-class DraftGenerationError(RuntimeError):
+class DraftGenerationError(TicketReadinessError):
     """Raised when a draft comment cannot be generated safely."""
 
 

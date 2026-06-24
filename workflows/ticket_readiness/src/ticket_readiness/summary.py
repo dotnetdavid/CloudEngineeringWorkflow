@@ -6,10 +6,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.reports import IssueReport
 
 
-class SummaryGenerationError(RuntimeError):
+class SummaryGenerationError(TicketReadinessError):
     """Raised when the run summary cannot be written."""
 
 

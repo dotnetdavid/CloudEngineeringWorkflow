@@ -4,6 +4,7 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
+from ticket_readiness.config import ConfigError
 from ticket_readiness.linear import LinearIssue
 
 
@@ -34,7 +35,7 @@ class RiskFlag:
         return payload
 
 
-class ReadinessConfigError(ValueError):
+class ReadinessConfigError(ConfigError):
     """Raised when readiness customization is invalid."""
 
 

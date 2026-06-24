@@ -8,6 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.rate_limit import RateLimitError
 
@@ -67,7 +68,7 @@ _UUID_PATTERN = re.compile(
 _LINEAR_IDENTIFIER_PATTERN = re.compile(r"^[A-Z0-9]+-[0-9]+$")
 
 
-class LinearReadError(RuntimeError):
+class LinearReadError(TicketReadinessError):
     """Raised when Linear data cannot be read safely."""
 
 

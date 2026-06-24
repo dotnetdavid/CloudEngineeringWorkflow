@@ -8,6 +8,7 @@ from ticket_readiness.approvals import ApprovalError, validate_approval_record, 
 from ticket_readiness.artifacts import ArtifactStore, RunArtifacts
 from ticket_readiness.config import load_config
 from ticket_readiness.drafts import generate_draft_comment
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.linear import LinearGraphQLClient, LinearIssue, LinearIssueReader, normalize_issue
 from ticket_readiness.llm_analysis import (
     HTTPOpenAIClient,
@@ -26,7 +27,7 @@ from ticket_readiness.summary import SummaryIssue, generate_run_summary
 from ticket_readiness.writeback import HTTPLinearCommentClient, LinearCommentWriteBack, WriteBackError
 
 
-class WorkflowError(RuntimeError):
+class WorkflowError(TicketReadinessError):
     """Raised when the workflow cannot complete."""
 
 

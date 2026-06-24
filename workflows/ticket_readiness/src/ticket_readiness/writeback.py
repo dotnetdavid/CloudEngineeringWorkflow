@@ -9,6 +9,7 @@ from typing import Any, Protocol
 
 from ticket_readiness.approvals import ApprovalError, validate_approval_record
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.linear import LINEAR_GRAPHQL_ENDPOINT
 
@@ -25,7 +26,7 @@ mutation TicketReadinessCreateComment($issueId: String!, $body: String!) {
 """
 
 
-class WriteBackError(RuntimeError):
+class WriteBackError(TicketReadinessError):
     """Raised when approved Linear write-back cannot be completed."""
 
 

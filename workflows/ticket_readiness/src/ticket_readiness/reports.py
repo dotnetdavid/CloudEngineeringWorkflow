@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
+from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.linear import LinearIssue
 from ticket_readiness.llm_analysis import LLMAnalysis
 from ticket_readiness.readiness import DeterministicReadinessResult
 
 
-class ReportGenerationError(RuntimeError):
+class ReportGenerationError(TicketReadinessError):
     """Raised when readiness reports cannot be written safely."""
 
 

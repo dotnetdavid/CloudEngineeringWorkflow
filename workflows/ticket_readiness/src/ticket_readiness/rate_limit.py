@@ -3,8 +3,10 @@ from __future__ import annotations
 import time
 from typing import Callable
 
+from ticket_readiness.errors import TicketReadinessError
 
-class RateLimitError(RuntimeError):
+
+class RateLimitError(TicketReadinessError):
     """Raised when an external API reports that requests are rate limited."""
 
 
