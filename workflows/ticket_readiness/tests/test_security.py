@@ -25,6 +25,48 @@ def test_redact_secrets_covers_common_token_patterns():
     assert redacted.count("[REDACTED_SECRET]") >= 4
 
 
+def test_redact_secrets_covers_jwt_database_urls_and_private_keys():
+    jwt = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiJBU0ctNjciLCJzY29wZSI6InRpY2tldCJ9."
+        "mF_9B5f-41JqM"
+    )
+    postgres_url = "postgresql://ticket_user:supersecretpassword@db.internal:5432/tickets"
+    mysql_url = "mysql://ticket_user:anothersecret@db.internal/tickets"
+    private_key = """-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASC
+-----END PRIVATE KEY-----"""
+    text = f"""
+    jwt: {jwt}
+    primary database {postgres_url}
+    replica database {mysql_url}
+    deploy key:
+    {private_key}
+    """
+
+    redacted = redact_secrets(text)
+
+    assert jwt not in redacted
+    assert postgres_url not in redacted
+    assert mysql_url not in redacted
+    assert private_key not in redacted
+    assert redacted.count("[REDACTED_SECRET]") >= 4
+
+
+def test_contains_secret_like_value_detects_expanded_secret_patterns():
+    payload = {
+        "jwt": (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJzdWIiOiJBU0ctNjciLCJzY29wZSI6InRpY2tldCJ9."
+            "mF_9B5f-41JqM"
+        ),
+        "connection": "mongodb://ticket_user:secretpass@db.internal/tickets",
+        "private_key": "-----BEGIN RSA PRIVATE KEY-----\nabc123\n-----END RSA PRIVATE KEY-----",
+    }
+
+    assert contains_secret_like_value(payload)
+
+
 def test_contains_secret_like_value_detects_nested_payloads():
     payload = {
         "issue": {
