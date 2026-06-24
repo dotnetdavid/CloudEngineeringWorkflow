@@ -179,6 +179,38 @@ def test_summarize_run_preserves_issue_errors_from_events(tmp_path):
     assert "LLM analysis failed." in summary
 
 
+def test_summarize_run_ignores_approval_validation_failures_as_issue_errors(tmp_path):
+    config = _config(tmp_path)
+    fixture = _fixture(tmp_path)
+    assert main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"]) == 0
+    run = next((tmp_path / "runs").iterdir())
+    events_path = run / "events.jsonl"
+    with events_path.open("a", encoding="utf-8") as events:
+        events.write(
+            json.dumps(
+                {
+                    "event_type": "approval_validation_failed",
+                    "issue_id": "ASG-40",
+                    "message": "Approval record is not approved.",
+                    "run_id": run.name,
+                    "state": "failed",
+                    "timestamp": "2026-06-24T00:00:00Z",
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+
+    exit_code = main(["--config", str(config), "summarize-run", "--run", run.name])
+
+    assert exit_code == 0
+    summary = (run / "summary.md").read_text(encoding="utf-8")
+    assert "Total Issues: 1" in summary
+    assert "ASG-40 Ticket" in summary
+    assert "Approval record is not approved." not in summary
+    assert "analysis_failed" not in summary
+
+
 def test_post_approved_refuses_when_write_back_disabled(tmp_path, capsys):
     config = _config(tmp_path)
     run_id = _approved_run(tmp_path, issue_id="ASG-40")

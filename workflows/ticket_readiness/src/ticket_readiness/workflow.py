@@ -250,7 +250,8 @@ def _errors_from_events(run: RunArtifacts) -> tuple[dict[str, str], list[str]]:
         message = str(event.get("message") or "Unknown failure.")
         issue_id = event.get("issue_id")
         if issue_id:
-            issue_errors[str(issue_id)] = message
+            if event.get("event_type") == "issue_analysis_failed":
+                issue_errors[str(issue_id)] = message
         else:
             run_errors.append(message)
     return issue_errors, run_errors
