@@ -120,6 +120,29 @@ def test_http_linear_client_reports_rate_limit(monkeypatch):
         LinearGraphQLClient(api_key="linear-key").execute("query {}", {})
 
 
+def test_http_linear_client_redacts_secret_like_error_details(monkeypatch):
+    secret = "sk" + "-proj-" + "a" * 40
+
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            500,
+            "Internal Server Error",
+            hdrs={},
+            fp=BytesIO(f'{{"error":"failed with {secret}"}}'.encode("utf-8")),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(LinearReadError) as exc_info:
+        LinearGraphQLClient(api_key="linear-key").execute("query {}", {})
+
+    message = str(exc_info.value)
+    assert "HTTP 500" in message
+    assert secret not in message
+    assert "[REDACTED_SECRET]" in message
+
+
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])
 def test_http_linear_client_rejects_invalid_timeout(timeout_seconds):
     with pytest.raises(ValueError, match="timeout_seconds"):

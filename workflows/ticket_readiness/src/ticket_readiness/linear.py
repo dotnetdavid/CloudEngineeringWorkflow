@@ -8,7 +8,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
-from ticket_readiness.http_config import validate_timeout_seconds
+from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.rate_limit import RateLimitError
 
 LINEAR_GRAPHQL_ENDPOINT = "https://api.linear.app/graphql"
@@ -150,7 +150,7 @@ class LinearGraphQLClient:
                 raise LinearReadError("Linear GraphQL request was rate limited.") from RateLimitError(
                     "Linear GraphQL request was rate limited."
                 )
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            detail = safe_http_error_detail(exc.read())
             raise LinearReadError(
                 f"Linear GraphQL request failed with HTTP {exc.code}: {detail}"
             ) from exc

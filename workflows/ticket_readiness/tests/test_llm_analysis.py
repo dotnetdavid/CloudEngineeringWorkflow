@@ -153,6 +153,29 @@ def test_http_openai_client_reports_rate_limit(monkeypatch):
         HTTPOpenAIClient(api_key="openai-key").create_response(model="gpt-5-mini", input=[])
 
 
+def test_http_openai_client_redacts_secret_like_error_details(monkeypatch):
+    secret = "sk" + "-proj-" + "b" * 40
+
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            500,
+            "Internal Server Error",
+            hdrs={},
+            fp=BytesIO(f'{{"error":"failed with {secret}"}}'.encode("utf-8")),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(LLMAnalysisError) as exc_info:
+        HTTPOpenAIClient(api_key="openai-key").create_response(model="gpt-5-mini", input=[])
+
+    message = str(exc_info.value)
+    assert "HTTP 500" in message
+    assert secret not in message
+    assert "[REDACTED_SECRET]" in message
+
+
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])
 def test_http_openai_client_rejects_invalid_timeout(timeout_seconds):
     with pytest.raises(ValueError, match="timeout_seconds"):

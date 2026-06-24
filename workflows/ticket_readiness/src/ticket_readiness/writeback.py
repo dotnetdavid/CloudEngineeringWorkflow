@@ -9,7 +9,7 @@ from typing import Any, Protocol
 
 from ticket_readiness.approvals import ApprovalError, validate_approval_record
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
-from ticket_readiness.http_config import validate_timeout_seconds
+from ticket_readiness.http_config import safe_http_error_detail, validate_timeout_seconds
 from ticket_readiness.linear import LINEAR_GRAPHQL_ENDPOINT
 
 CREATE_COMMENT_MUTATION = """
@@ -75,7 +75,7 @@ class HTTPLinearCommentClient:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            detail = safe_http_error_detail(exc.read())
             raise WriteBackError(
                 f"Linear comment request failed with HTTP {exc.code}: {detail}"
             ) from exc
