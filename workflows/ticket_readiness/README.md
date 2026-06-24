@@ -181,8 +181,14 @@ patterns; it is not a full data loss prevention system.
 Draft comments are not posted automatically. To approve, reject, or skip a
 draft, edit the matching `approvals/<issue-id>-approval.json` file after
 reviewing the draft. A valid write-back approval requires `decision` to be
-`approved`, the `issue_id` to match the workflow issue, and `draft_sha256` to
-match the current draft file. Any changed draft requires reapproval.
+`approved`, `approved_by` to identify the reviewer, `approved_at` to record the
+decision time, the `issue_id` to match the workflow issue, and `draft_sha256`
+to match the current draft file. Any changed draft requires reapproval.
+
+Approval records are local files and are not cryptographically signed or
+authenticated. They provide a lightweight sandbox audit trail only; production
+use would need stronger controls such as signed records, identity-backed
+approval capture, and tamper-evident storage.
 
 Validate approvals:
 
@@ -205,7 +211,7 @@ assignee, description, labels, or project membership.
 - `OPENAI_API_KEY is required`: set `OPENAI_API_KEY` or use `--mock-llm` with
   fixture data.
 - `Approval record is not approved`: review the draft and manually set
-  `decision` to `approved`.
+  `decision` to `approved`, set `approved_by`, and set `approved_at`.
 - `Approval record is stale`: the draft changed after approval; review and
   approve again.
 - `pytest` capture errors on mounted paths: this project configures

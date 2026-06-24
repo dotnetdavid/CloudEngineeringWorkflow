@@ -30,6 +30,8 @@ def test_write_approval_template_requires_manual_decision(tmp_path):
     assert payload["issue_id"] == "ASG-40"
     assert payload["decision"] == "skipped"
     assert payload["approved_by"] == "Dave"
+    assert payload["approved_at"] is None
+    assert "decided_at" not in payload
     assert payload["draft_sha256"] == template.draft_sha256
 
 
@@ -42,7 +44,7 @@ def test_validate_approved_record_accepts_current_hash(tmp_path):
         issue_id="ASG-40",
         draft_relative_path="drafts/ASG-40-linear-comment.md",
     )
-    _update_approval(run.path(template.path), decision="approved")
+    _approve(run.path(template.path), approved_by="Dave", approved_at="2026-06-24T18:00:00Z")
 
     record = validate_approval_record(
         run=run,
@@ -52,6 +54,35 @@ def test_validate_approved_record_accepts_current_hash(tmp_path):
 
     assert isinstance(record, ApprovalRecord)
     assert record.decision == "approved"
+    assert record.approved_by == "Dave"
+    assert record.approved_at == "2026-06-24T18:00:00Z"
+
+
+def test_validate_approved_record_requires_approved_by(tmp_path):
+    run = _approved_run(
+        tmp_path,
+        decision="approved",
+        approved_by=None,
+        approved_at="2026-06-24T18:00:00Z",
+    )
+
+    with pytest.raises(ApprovalError, match="approved_by"):
+        validate_approval_record(
+            run=run,
+            issue_id="ASG-40",
+            draft_relative_path="drafts/ASG-40-linear-comment.md",
+        )
+
+
+def test_validate_approved_record_requires_approved_at(tmp_path):
+    run = _approved_run(tmp_path, decision="approved", approved_by="Dave", approved_at=None)
+
+    with pytest.raises(ApprovalError, match="approved_at"):
+        validate_approval_record(
+            run=run,
+            issue_id="ASG-40",
+            draft_relative_path="drafts/ASG-40-linear-comment.md",
+        )
 
 
 @pytest.mark.parametrize("decision", ["rejected", "skipped"])
@@ -115,7 +146,13 @@ def test_malformed_approval_blocks_write_back(tmp_path):
         )
 
 
-def _approved_run(tmp_path: Path, *, decision: str):
+def _approved_run(
+    tmp_path: Path,
+    *,
+    decision: str,
+    approved_by: str | None = "Dave",
+    approved_at: str | None = "2026-06-24T18:00:00Z",
+):
     run = _run(tmp_path)
     run.path("drafts", "ASG-40-linear-comment.md").write_text("draft comment\n", encoding="utf-8")
     template = write_approval_template(
@@ -123,7 +160,7 @@ def _approved_run(tmp_path: Path, *, decision: str):
         issue_id="ASG-40",
         draft_relative_path="drafts/ASG-40-linear-comment.md",
     )
-    _update_approval(run.path(template.path), decision=decision)
+    _approve(run.path(template.path), decision=decision, approved_by=approved_by, approved_at=approved_at)
     return run
 
 
@@ -142,3 +179,13 @@ def _update_approval(path: Path, **updates):
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload.update(updates)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _approve(
+    path: Path,
+    *,
+    decision: str = "approved",
+    approved_by: str | None,
+    approved_at: str | None,
+):
+    _update_approval(path, decision=decision, approved_by=approved_by, approved_at=approved_at)

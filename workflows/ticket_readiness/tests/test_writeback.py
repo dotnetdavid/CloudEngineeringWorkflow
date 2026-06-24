@@ -114,6 +114,8 @@ def _approved_run(tmp_path: Path):
     approval_path = run.path(template.path)
     payload = json.loads(approval_path.read_text(encoding="utf-8"))
     payload["decision"] = "approved"
+    payload["approved_by"] = "Dave"
+    payload["approved_at"] = "2026-06-24T18:00:00Z"
     approval_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return run
 

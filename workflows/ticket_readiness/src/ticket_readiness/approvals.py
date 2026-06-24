@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from ticket_readiness.artifacts import ArtifactWriteError, RunArtifacts
@@ -22,10 +22,11 @@ class ApprovalRecord:
     draft_sha256: str
     decision: str
     approved_by: str | None
-    decided_at: str
+    approved_at: str | None
     rationale: str | None = None
     posted_comment_id: str | None = None
     path: str | None = None
+    decided_at: str | None = None
 
 
 def write_approval_template(
@@ -44,7 +45,7 @@ def write_approval_template(
         draft_sha256=draft_sha256,
         decision="skipped",
         approved_by=approved_by,
-        decided_at=_now(),
+        approved_at=None,
         rationale=rationale or "Manual review required. Change decision to approved, rejected, or skipped.",
         path=path,
     )
@@ -95,7 +96,9 @@ def _parse_record(payload: dict[str, Any], approval_path: str) -> ApprovalRecord
         draft_path = _required_string(payload, "draft_path")
         draft_sha256 = _required_string(payload, "draft_sha256")
         decision = _required_string(payload, "decision")
-        decided_at = _required_string(payload, "decided_at")
+        approved_by = _optional_string(payload.get("approved_by"))
+        approved_at = _optional_string(payload.get("approved_at"))
+        decided_at = _optional_string(payload.get("decided_at"))
     except (KeyError, TypeError, ValueError) as exc:
         raise ApprovalError(f"Approval record is malformed: {approval_path}") from exc
 
@@ -103,17 +106,22 @@ def _parse_record(payload: dict[str, Any], approval_path: str) -> ApprovalRecord
         raise ApprovalError(f"Approval record has unsupported decision: {decision}")
     if len(draft_sha256) != 64:
         raise ApprovalError(f"Approval record has malformed draft_sha256: {approval_path}")
+    if decision == "approved":
+        if not approved_by:
+            raise ApprovalError("Approval record approved_by is required for approved decisions.")
+        approved_at = _required_timestamp(payload, "approved_at")
 
     return ApprovalRecord(
         issue_id=issue_id,
         draft_path=draft_path,
         draft_sha256=draft_sha256,
         decision=decision,
-        approved_by=_optional_string(payload.get("approved_by")),
-        decided_at=decided_at,
+        approved_by=approved_by,
+        approved_at=approved_at,
         rationale=_optional_string(payload.get("rationale")),
         posted_comment_id=_optional_string(payload.get("posted_comment_id")),
         path=approval_path,
+        decided_at=decided_at,
     )
 
 
@@ -124,7 +132,7 @@ def _record_payload(record: ApprovalRecord) -> dict[str, Any]:
         "draft_sha256": record.draft_sha256,
         "decision": record.decision,
         "approved_by": record.approved_by,
-        "decided_at": record.decided_at,
+        "approved_at": record.approved_at,
         "rationale": record.rationale,
         "posted_comment_id": record.posted_comment_id,
     }
@@ -149,5 +157,15 @@ def _optional_string(value: Any) -> str | None:
     return value
 
 
-def _now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+def _required_timestamp(payload: dict[str, Any], field_name: str) -> str:
+    try:
+        value = _required_string(payload, field_name)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ApprovalError(f"Approval record {field_name} is required.") from exc
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ApprovalError(f"Approval record has malformed {field_name}.") from exc
+    if parsed.tzinfo is None:
+        raise ApprovalError(f"Approval record {field_name} must include a timezone.")
+    return value
