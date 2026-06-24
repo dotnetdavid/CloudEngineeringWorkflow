@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
+import urllib.error
+
 import pytest
 
-from ticket_readiness.linear import LinearIssueReader, LinearReadError, normalize_issue
+from ticket_readiness.linear import LinearGraphQLClient, LinearIssueReader, LinearReadError, normalize_issue
 
 
 def test_normalize_issue_from_linear_payload():
@@ -81,6 +84,42 @@ def test_reader_surfaces_read_failures_without_partial_results():
         reader.read_project_issues("project-123")
 
 
+def test_http_linear_client_throttles_before_request(monkeypatch):
+    limiter = FakeRateLimiter()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"data":{"project":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false}}}}}'
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: FakeResponse())
+
+    LinearGraphQLClient(api_key="linear-key", rate_limiter=limiter).execute("query {}", {})
+
+    assert limiter.calls == 1
+
+
+def test_http_linear_client_reports_rate_limit(monkeypatch):
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            429,
+            "Too Many Requests",
+            hdrs={},
+            fp=BytesIO(b'{"error":"slow down"}'),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(LinearReadError, match="rate limited"):
+        LinearGraphQLClient(api_key="linear-key").execute("query {}", {})
+
+
 class FakeLinearClient:
     def __init__(self, responses: list[dict]):
         self._responses = responses
@@ -94,3 +133,11 @@ class FakeLinearClient:
 class FailingLinearClient:
     def execute(self, query: str, variables: dict) -> dict:
         raise RuntimeError("network unavailable")
+
+
+class FakeRateLimiter:
+    def __init__(self):
+        self.calls = 0
+
+    def wait(self) -> None:
+        self.calls += 1

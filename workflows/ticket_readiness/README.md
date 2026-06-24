@@ -130,6 +130,21 @@ export OPENAI_API_KEY=...
 The command prints the run ID. Artifacts are written under `runs/<run-id>/` by
 default, or under `artifact_root` when configured.
 
+## API Guardrails
+
+Live runs use two configuration guardrails before calling external APIs:
+
+- `max_issues` caps the number of issues allowed in a run. If a fixture or
+  Linear project exceeds this value, the workflow fails before issue artifacts
+  or OpenAI calls are written.
+- `api_rate_limit.min_interval_seconds` adds a fixed delay before Linear and
+  OpenAI HTTP calls. Set it to `0` only for local tests or explicitly approved
+  sandbox runs.
+
+HTTP 429 responses from Linear or OpenAI are reported as rate-limit failures.
+OpenAI per-issue rate-limit failures are recorded in `events.jsonl` and
+`summary.md` for review.
+
 ## Run Artifacts
 
 Each run folder should contain:

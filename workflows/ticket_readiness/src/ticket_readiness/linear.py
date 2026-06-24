@@ -8,6 +8,8 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
+from ticket_readiness.rate_limit import RateLimitError
+
 LINEAR_GRAPHQL_ENDPOINT = "https://api.linear.app/graphql"
 
 PROJECT_ISSUES_QUERY = """
@@ -72,6 +74,11 @@ class LinearGraphQLTransport(Protocol):
         """Execute a read-only GraphQL request."""
 
 
+class RateLimiter(Protocol):
+    def wait(self) -> None:
+        """Throttle before an external API call."""
+
+
 @dataclass(frozen=True)
 class LinearPriority:
     value: int | float | None = None
@@ -110,10 +117,12 @@ class LinearGraphQLClient:
         api_key: str | None = None,
         endpoint: str = LINEAR_GRAPHQL_ENDPOINT,
         timeout_seconds: int = 30,
+        rate_limiter: RateLimiter | None = None,
     ) -> None:
         self._api_key = api_key or os.environ.get("LINEAR_API_KEY")
         self._endpoint = endpoint
         self._timeout_seconds = timeout_seconds
+        self._rate_limiter = rate_limiter
 
     def execute(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         if not self._api_key:
@@ -130,9 +139,15 @@ class LinearGraphQLClient:
         )
 
         try:
+            if self._rate_limiter is not None:
+                self._rate_limiter.wait()
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 response_body = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise LinearReadError("Linear GraphQL request was rate limited.") from RateLimitError(
+                    "Linear GraphQL request was rate limited."
+                )
             detail = exc.read().decode("utf-8", errors="replace")[:500]
             raise LinearReadError(
                 f"Linear GraphQL request failed with HTTP {exc.code}: {detail}"
@@ -156,7 +171,7 @@ class LinearIssueReader:
     def __init__(self, client: LinearGraphQLTransport) -> None:
         self._client = client
 
-    def read_project_issues(self, project_id: str) -> list[LinearIssue]:
+    def read_project_issues(self, project_id: str, *, max_issues: int | None = None) -> list[LinearIssue]:
         issues: list[LinearIssue] = []
         cursor: str | None = None
 
@@ -167,7 +182,12 @@ class LinearIssueReader:
                     {"projectId": project_id, "cursor": cursor},
                 )
                 connection = _issues_connection(response, project_id)
-                issues.extend(normalize_issue(issue) for issue in connection.get("nodes", []))
+                for issue in connection.get("nodes", []):
+                    if max_issues is not None and len(issues) >= max_issues:
+                        raise LinearReadError(
+                            f"Linear project issue count exceeds configured max_issues: {max_issues}"
+                        )
+                    issues.append(normalize_issue(issue))
 
                 page_info = connection.get("pageInfo") or {}
                 if not page_info.get("hasNextPage"):

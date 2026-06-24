@@ -14,6 +14,7 @@ from ticket_readiness.llm_analysis import (
     LLMAnalysisAdapter,
     validate_model_output,
 )
+from ticket_readiness.rate_limit import FixedDelayRateLimiter
 from ticket_readiness.readiness import DeterministicReadinessResult, evaluate_issue
 from ticket_readiness.reports import IssueReport, generate_issue_report
 from ticket_readiness.summary import SummaryIssue, generate_run_summary
@@ -34,7 +35,19 @@ def run_analysis(
     run = _create_run(config, config_path=config_path)
     run.append_event(event_type="run_started", state="running", message="Run started.")
 
-    issues = _load_fixture_issues(fixture_data) if fixture_data else _read_linear_issues(config)
+    rate_limiter = _api_rate_limiter(config)
+    try:
+        issues = (
+            _load_fixture_issues(fixture_data, config=config)
+            if fixture_data
+            else _read_linear_issues(config, rate_limiter=rate_limiter)
+        )
+    except Exception as exc:
+        message = str(exc)
+        run.append_event(event_type="issue_load_failed", state="failed", message=message)
+        generate_run_summary(run=run, issues=[], errors=[message])
+        raise WorkflowError(message) from exc
+
     run.write_json("inputs/linear-project.json", config.get("project", {}))
 
     summary_issues: list[SummaryIssue] = []
@@ -45,7 +58,11 @@ def run_analysis(
         try:
             run.write_json(f"inputs/issues/{issue.identifier}.json", issue.to_dict())
             deterministic = evaluate_issue(issue)
-            analysis = _mock_analysis(issue, deterministic) if mock_llm else _live_analysis(issue, rubric, deterministic)
+            analysis = (
+                _mock_analysis(issue, deterministic)
+                if mock_llm
+                else _live_analysis(issue, rubric, deterministic, rate_limiter=rate_limiter)
+            )
             draft = generate_draft_comment(run=run, issue=issue, llm_analysis=analysis)
             report = generate_issue_report(
                 run=run,
@@ -291,30 +308,64 @@ def _relative_to_run(run: RunArtifacts, path: Path) -> str:
     return path.relative_to(run.root).as_posix()
 
 
-def _load_fixture_issues(path: Path | None) -> list[LinearIssue]:
+def _load_fixture_issues(path: Path | None, *, config: dict[str, Any]) -> list[LinearIssue]:
     if path is None:
         raise WorkflowError("fixture_data is required in fixture mode.")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise WorkflowError("Fixture data must be a JSON array of issues.")
+    _enforce_max_issues(len(payload), config=config)
     return [normalize_issue(item) for item in payload]
 
 
-def _read_linear_issues(config: dict[str, Any]) -> list[LinearIssue]:
+def _read_linear_issues(config: dict[str, Any], *, rate_limiter: FixedDelayRateLimiter) -> list[LinearIssue]:
     project_id = str(config["project"]["id"])
-    return LinearIssueReader(client=LinearGraphQLClient()).read_project_issues(project_id)
+    return LinearIssueReader(
+        client=LinearGraphQLClient(rate_limiter=rate_limiter)
+    ).read_project_issues(project_id, max_issues=_max_issues(config))
 
 
 def _live_analysis(
     issue: LinearIssue,
     rubric: dict[str, Any],
     deterministic: DeterministicReadinessResult,
+    *,
+    rate_limiter: FixedDelayRateLimiter,
 ):
-    return LLMAnalysisAdapter(client=HTTPOpenAIClient()).analyze(
+    return LLMAnalysisAdapter(client=HTTPOpenAIClient(rate_limiter=rate_limiter)).analyze(
         issue=issue,
         rubric=rubric,
         deterministic_result=deterministic,
     )
+
+
+def _api_rate_limiter(config: dict[str, Any]) -> FixedDelayRateLimiter:
+    rate_limit = config.get("api_rate_limit")
+    delay_seconds = 0.0
+    if isinstance(rate_limit, dict):
+        delay_seconds = float(rate_limit.get("min_interval_seconds") or 0)
+    return FixedDelayRateLimiter(delay_seconds=delay_seconds)
+
+
+def _max_issues(config: dict[str, Any]) -> int | None:
+    value = config.get("max_issues")
+    if value is None:
+        return None
+    try:
+        max_issues = int(value)
+    except (TypeError, ValueError) as exc:
+        raise WorkflowError("max_issues must be a positive integer.") from exc
+    if max_issues < 1:
+        raise WorkflowError("max_issues must be a positive integer.")
+    return max_issues
+
+
+def _enforce_max_issues(issue_count: int, *, config: dict[str, Any]) -> None:
+    max_issues = _max_issues(config)
+    if max_issues is not None and issue_count > max_issues:
+        raise WorkflowError(
+            f"Run issue count {issue_count} exceeds configured max_issues: {max_issues}"
+        )
 
 
 def _mock_analysis(issue: LinearIssue, deterministic: DeterministicReadinessResult):
