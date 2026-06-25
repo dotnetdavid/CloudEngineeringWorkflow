@@ -5,6 +5,20 @@ It is designed for cloud infrastructure work where ambiguity, missing rollback
 plans, unclear ownership, and hidden operational risk can turn small tickets
 into expensive surprises.
 
+## What This Workflow Does
+
+This workflow automatically assesses the readiness of Linear tickets by running deterministic checks and optional OpenAI-assisted analysis. It evaluates tickets against a readiness rubric to identify missing information, unclear ownership, and operational risks before sprint commitment. The workflow generates local reports, draft comments for human review, and maintains a complete audit trail of all analysis runs. It supports both fixture-based testing (without external API calls) and live sandbox runs against a configured Linear project.
+
+## How to Use It
+
+1. **Set up the environment**: Create a virtual environment and install dependencies from the workflow directory
+2. **Configure credentials**: Set `LINEAR_API_KEY` and `OPENAI_API_KEY` as environment variables (or use fixture mode without credentials)
+3. **Run analysis**: Execute the CLI with a config file to analyze tickets from your Linear project
+4. **Review artifacts**: Check the generated reports, drafts, and summaries in the `runs/<run-id>/` directory
+5. **Approve and post**: Manually review draft comments, approve them in the approval records, and optionally post approved comments back to Linear
+
+The workflow can run in fixture mode for testing (`--fixture-data` and `--mock-llm`) or live mode against the configured Linear project. All runs generate comprehensive local artifacts for review and audit.
+
 ## Current Sandbox
 
 - Linear workspace: Asgard AI Agency
