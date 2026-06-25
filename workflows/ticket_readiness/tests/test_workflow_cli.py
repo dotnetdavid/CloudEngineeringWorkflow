@@ -8,7 +8,7 @@ import pytest
 from ticket_readiness.approvals import write_approval_template
 from ticket_readiness.artifacts import ArtifactStore
 from ticket_readiness.cli import main
-from ticket_readiness.llm_analysis import LLMAnalysisError
+from ticket_readiness.llm_analysis import LLMAnalysis, LLMAnalysisError
 
 
 def test_run_analysis_fixture_mode_creates_artifacts(tmp_path):
@@ -307,6 +307,26 @@ def test_run_analysis_records_openai_rate_limit_failures(tmp_path, monkeypatch):
     assert "OpenAI response request was rate limited." in summary
 
 
+def test_run_analysis_uses_configured_openai_model(tmp_path, monkeypatch):
+    config = _config(tmp_path, extra_lines=["openai:", "  model: gpt-4.1-mini"])
+
+    assert _run_with_recorded_model(config=config, tmp_path=tmp_path, monkeypatch=monkeypatch) == ["gpt-4.1-mini"]
+
+
+def test_run_analysis_uses_openai_model_environment_override(tmp_path, monkeypatch):
+    config = _config(tmp_path)
+    monkeypatch.setenv("TICKET_READINESS_OPENAI_MODEL", "gpt-4.1")
+
+    assert _run_with_recorded_model(config=config, tmp_path=tmp_path, monkeypatch=monkeypatch) == ["gpt-4.1"]
+
+
+def test_run_analysis_prefers_configured_openai_model_over_environment(tmp_path, monkeypatch):
+    config = _config(tmp_path, extra_lines=["openai:", "  model: gpt-4.1-mini"])
+    monkeypatch.setenv("TICKET_READINESS_OPENAI_MODEL", "gpt-4.1")
+
+    assert _run_with_recorded_model(config=config, tmp_path=tmp_path, monkeypatch=monkeypatch) == ["gpt-4.1-mini"]
+
+
 def test_validate_approvals_command_blocks_default_skipped_template(tmp_path):
     config = _config(tmp_path)
     fixture = tmp_path / "issues.json"
@@ -535,6 +555,40 @@ class FakeCommentClient:
     def create_comment(self, *, issue_id: str, body: str) -> dict:
         self.calls.append({"issue_id": issue_id, "body": body})
         return self._response
+
+
+def _run_with_recorded_model(*, config: Path, tmp_path: Path, monkeypatch) -> list[str]:
+    fixture = _fixture(tmp_path)
+    models = []
+
+    class RecordingAdapter:
+        def __init__(self, client, model):
+            models.append(model)
+
+        def analyze(self, *, issue, rubric, deterministic_result):
+            return _analysis()
+
+    monkeypatch.setattr("ticket_readiness.workflow.HTTPOpenAIClient", lambda rate_limiter=None: object())
+    monkeypatch.setattr("ticket_readiness.workflow.LLMAnalysisAdapter", RecordingAdapter)
+
+    assert main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture)]) == 0
+    return models
+
+
+def _analysis() -> LLMAnalysis:
+    return LLMAnalysis(
+        summary="Ticket is ready enough for test analysis.",
+        work_type="infrastructure_change",
+        risk_level="low",
+        readiness_status="ready",
+        missing_information=(),
+        grooming_questions=(),
+        operational_risk=(),
+        security_notes=(),
+        acceptance_criteria_improvements=(),
+        recommended_next_action="Proceed with normal review.",
+        draft_comment="Ticket readiness looks acceptable.",
+    )
 
 
 def _json_stdout_records(capsys):
