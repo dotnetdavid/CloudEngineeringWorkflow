@@ -38,6 +38,7 @@ def write_approval_template(
     approved_by: str | None = None,
     rationale: str | None = None,
 ) -> ApprovalRecord:
+    """Write a pending approval record tied to the current draft hash."""
     draft_sha256 = compute_draft_hash(run.path(draft_relative_path))
     path = _approval_path(issue_id)
     record = ApprovalRecord(
@@ -63,6 +64,7 @@ def validate_approval_record(
     issue_id: str,
     draft_relative_path: str,
 ) -> ApprovalRecord:
+    """Return an approved record only when it matches the current draft."""
     approval_path = _approval_path(issue_id)
     full_path = run.path(approval_path)
     if not full_path.exists():

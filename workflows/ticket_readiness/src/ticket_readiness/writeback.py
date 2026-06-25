@@ -43,6 +43,8 @@ class WriteBackResult:
 
 
 class HTTPLinearCommentClient:
+    """Create Linear comments through the GraphQL API."""
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -94,6 +96,8 @@ class HTTPLinearCommentClient:
 
 
 class LinearCommentWriteBack:
+    """Post approved draft comments and record durable write-back evidence."""
+
     def __init__(self, client: LinearCommentClient) -> None:
         self._client = client
 

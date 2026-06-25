@@ -32,6 +32,7 @@ def generate_issue_report(
     llm_analysis: LLMAnalysis,
     draft_comment_path: str,
 ) -> IssueReport:
+    """Write markdown and JSON readiness reports for one analyzed issue."""
     issue_slug = issue.identifier.replace("/", "-")
     markdown_path = f"reports/{issue_slug}-readiness.md"
     json_path = f"reports/{issue_slug}-readiness.json"
@@ -69,6 +70,7 @@ def build_report_payload(
     llm_analysis: LLMAnalysis,
     draft_comment_path: str,
 ) -> dict[str, Any]:
+    """Build the machine-readable payload shared by report formats."""
     dimension_scores = _dimension_scores(deterministic_result)
     return {
         "issue_id": issue.identifier,
@@ -96,6 +98,7 @@ def build_report_payload(
 
 
 def render_markdown_report(payload: dict[str, Any]) -> str:
+    """Render an operator-facing markdown report from a report payload."""
     source_url = payload.get("issue_url") or "not provided"
     return "\n".join(
         [

@@ -24,6 +24,7 @@ class JsonLogFormatter(logging.Formatter):
 
 
 def configure_logging() -> None:
+    """Configure stderr JSON logging for CLI and artifact events."""
     logger = logging.getLogger(LOGGER_NAME)
     logger.handlers.clear()
     handler = logging.StreamHandler(sys.stderr)
@@ -42,6 +43,7 @@ def log_event(
     issue_id: str | None = None,
     severity: str = "info",
 ) -> None:
+    """Emit a structured operational event to the workflow logger."""
     logger = logging.getLogger(LOGGER_NAME)
     level = logging.ERROR if severity == "error" else logging.INFO
     logger.log(

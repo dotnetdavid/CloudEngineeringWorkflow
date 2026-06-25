@@ -11,6 +11,8 @@ class RateLimitError(TicketReadinessError):
 
 
 class FixedDelayRateLimiter:
+    """Apply a fixed delay before external API calls."""
+
     def __init__(
         self,
         *,
