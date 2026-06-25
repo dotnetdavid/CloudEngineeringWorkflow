@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence, cast
 
 from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.logging import configure_logging, log_event
@@ -69,7 +69,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return args.handler(args)
+        handler = cast(Callable[[argparse.Namespace], int], args.handler)
+        return handler(args)
     except TicketReadinessError as exc:
         _report_command_failure(exc)
         return 1

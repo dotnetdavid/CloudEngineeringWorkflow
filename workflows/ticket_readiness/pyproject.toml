@@ -14,7 +14,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "mypy>=1.10,<2",
   "pytest>=8.0,<10",
+  "types-PyYAML>=6.0.12,<7",
 ]
 
 [project.scripts]
@@ -27,3 +29,9 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q --capture=sys"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/ticket_readiness"]
+strict = true
+warn_unused_configs = true

@@ -16,7 +16,7 @@ class DeterministicFinding:
     evidence: tuple[str, ...] = ()
     required: bool = True
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["evidence"] = list(self.evidence)
         return payload
@@ -29,7 +29,7 @@ class RiskFlag:
     message: str
     evidence: tuple[str, ...] = ()
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["evidence"] = list(self.evidence)
         return payload
@@ -56,7 +56,7 @@ class DeterministicReadinessResult:
     risk_flags: tuple[RiskFlag, ...]
     trivially_incomplete: bool
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "issue_id": self.issue_id,
             "work_type": self.work_type,

@@ -112,6 +112,7 @@ when a local shell override is enough. If both are set, `openai.model` wins.
 
 ```bash
 .venv/bin/python -m pytest
+.venv/bin/python -m mypy src/ticket_readiness
 ```
 
 Pytest is configured to use `--capture=sys` because file-descriptor capture is
