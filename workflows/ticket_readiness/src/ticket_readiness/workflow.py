@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from ticket_readiness.drafts import generate_draft_comment
 from ticket_readiness.errors import TicketReadinessError
 from ticket_readiness.linear import LinearGraphQLClient, LinearIssue, LinearIssueReader, normalize_issue
 from ticket_readiness.llm_analysis import (
+    DEFAULT_MODEL,
     HTTPOpenAIClient,
     LLMAnalysisAdapter,
     validate_model_output,
@@ -68,6 +70,7 @@ def run_analysis(
     summary_issues: list[SummaryIssue] = []
     errors: list[str] = []
     rubric = _default_rubric()
+    openai_model = _openai_model(config)
     try:
         custom_checks = load_custom_checks(config)
     except ReadinessConfigError as exc:
@@ -90,7 +93,13 @@ def run_analysis(
             analysis = (
                 _mock_analysis(issue, deterministic)
                 if mock_llm
-                else _live_analysis(issue, rubric, deterministic, rate_limiter=rate_limiter)
+                else _live_analysis(
+                    issue,
+                    rubric,
+                    deterministic,
+                    model=openai_model,
+                    rate_limiter=rate_limiter,
+                )
             )
             draft = generate_draft_comment(run=run, issue=issue, llm_analysis=analysis)
             report = generate_issue_report(
@@ -236,6 +245,20 @@ def _write_back_enabled(config: dict[str, Any]) -> bool:
     return isinstance(write_back, dict) and write_back.get("enabled") is True
 
 
+def _openai_model(config: dict[str, Any]) -> str:
+    openai_config = config.get("openai")
+    if openai_config is not None and not isinstance(openai_config, dict):
+        raise WorkflowError("openai config must be a mapping.")
+    if isinstance(openai_config, dict) and "model" in openai_config:
+        model = openai_config.get("model")
+        if not isinstance(model, str) or not model.strip():
+            raise WorkflowError("openai.model must be a non-empty string.")
+        return model.strip()
+
+    env_model = os.environ.get("TICKET_READINESS_OPENAI_MODEL", "").strip()
+    return env_model or DEFAULT_MODEL
+
+
 def _reconstruct_summary_state(run: RunArtifacts) -> tuple[list[SummaryIssue], list[str]]:
     """Rebuild summary inputs from reports, issue snapshots, and events."""
     snapshots = _issue_snapshots(run)
@@ -375,9 +398,10 @@ def _live_analysis(
     rubric: dict[str, Any],
     deterministic: DeterministicReadinessResult,
     *,
+    model: str,
     rate_limiter: FixedDelayRateLimiter,
 ):
-    return LLMAnalysisAdapter(client=HTTPOpenAIClient(rate_limiter=rate_limiter)).analyze(
+    return LLMAnalysisAdapter(client=HTTPOpenAIClient(rate_limiter=rate_limiter), model=model).analyze(
         issue=issue,
         rubric=rubric,
         deterministic_result=deterministic,

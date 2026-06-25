@@ -146,6 +146,7 @@ Required fields:
 - `workspace`
 - `team`
 - `team_key`
+- `openai.model`
 - `project.name`
 - `project.id`
 - `project.url`
@@ -154,6 +155,9 @@ Required fields:
 
 `project.id` must be a Linear project UUID. Invalid project IDs must be
 rejected before run artifact creation, Linear API reads, or OpenAI API calls.
+`openai.model` defaults to `gpt-5-mini` in the sandbox config. Operators may
+override it per process with `TICKET_READINESS_OPENAI_MODEL` when the YAML field
+is omitted.
 
 ### 5.2 Linear Issue Fields
 

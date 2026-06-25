@@ -104,6 +104,10 @@ $env:OPENAI_API_KEY = Read-Host "OpenAI API key"
 $env:LINEAR_API_KEY = Read-Host "Linear API key"
 ```
 
+The default OpenAI model is `gpt-5-mini`. Override it with `openai.model` in
+the YAML config for reproducible runs, or set `TICKET_READINESS_OPENAI_MODEL`
+when a local shell override is enough. If both are set, `openai.model` wins.
+
 ## Run Tests
 
 ```bash
