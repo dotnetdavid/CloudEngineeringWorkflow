@@ -15,6 +15,7 @@ from ticket_readiness.linear import LinearGraphQLClient, LinearIssue, LinearIssu
 from ticket_readiness.llm_analysis import (
     DEFAULT_MODEL,
     HTTPOpenAIClient,
+    LLMAnalysis,
     LLMAnalysisAdapter,
     validate_model_output,
 )
@@ -400,7 +401,7 @@ def _live_analysis(
     *,
     model: str,
     rate_limiter: FixedDelayRateLimiter,
-):
+) -> LLMAnalysis:
     return LLMAnalysisAdapter(client=HTTPOpenAIClient(rate_limiter=rate_limiter), model=model).analyze(
         issue=issue,
         rubric=rubric,
@@ -437,7 +438,7 @@ def _enforce_max_issues(issue_count: int, *, config: dict[str, Any]) -> None:
         )
 
 
-def _mock_analysis(issue: LinearIssue, deterministic: DeterministicReadinessResult):
+def _mock_analysis(issue: LinearIssue, deterministic: DeterministicReadinessResult) -> LLMAnalysis:
     missing = [
         finding.message
         for finding in deterministic.findings

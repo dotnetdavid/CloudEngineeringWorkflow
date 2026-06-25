@@ -164,12 +164,14 @@ class LinearGraphQLClient:
             payload = json.loads(response_body)
         except json.JSONDecodeError as exc:
             raise LinearReadError("Linear GraphQL response was not valid JSON.") from exc
+        if not isinstance(payload, dict):
+            raise LinearReadError("Linear GraphQL response must be a JSON object.")
 
         errors = payload.get("errors")
         if errors:
             raise LinearReadError(f"Linear GraphQL returned errors: {_error_summary(errors)}")
 
-        return payload
+        return dict(payload)
 
 
 class LinearIssueReader:

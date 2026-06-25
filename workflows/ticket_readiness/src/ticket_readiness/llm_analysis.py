@@ -127,9 +127,12 @@ class HTTPOpenAIClient:
             raise LLMAnalysisError(f"OpenAI response request failed: {exc.reason}") from exc
 
         try:
-            return json.loads(response_body)
+            payload = json.loads(response_body)
         except json.JSONDecodeError as exc:
             raise LLMAnalysisError("OpenAI response was not valid JSON.") from exc
+        if not isinstance(payload, dict):
+            raise LLMAnalysisError("OpenAI response must be a JSON object.")
+        return dict(payload)
 
 
 class LLMAnalysisAdapter:
@@ -278,8 +281,9 @@ def _system_prompt() -> str:
 
 
 def _extract_output(response: dict[str, Any]) -> str | dict[str, Any]:
-    if "output_text" in response:
-        return response["output_text"]
+    output_text = response.get("output_text")
+    if isinstance(output_text, str):
+        return output_text
 
     output = response.get("output")
     if isinstance(output, list):
