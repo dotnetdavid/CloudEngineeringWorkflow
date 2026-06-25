@@ -168,6 +168,8 @@ Supported boundaries:
 
 Live runs use two configuration guardrails before calling external APIs:
 
+- `project.id` must be a Linear project UUID. Invalid values fail before run
+  artifacts, Linear reads, or OpenAI calls are created.
 - `max_issues` caps the number of issues allowed in a run. If a fixture or
   Linear project exceeds this value, the workflow fails before issue artifacts
   or OpenAI calls are written.

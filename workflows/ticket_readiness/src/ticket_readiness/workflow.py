@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,12 @@ class WorkflowError(TicketReadinessError):
     """Raised when the workflow cannot complete."""
 
 
+_LINEAR_PROJECT_UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
 def run_analysis(
     *,
     config_path: Path,
@@ -38,6 +45,7 @@ def run_analysis(
     mock_llm: bool = False,
 ) -> str:
     config = load_config(config_path)
+    _linear_project_id(config)
     run = _create_run(config, config_path=config_path)
     run.append_event(event_type="run_started", state="running", message="Run started.")
 
@@ -188,7 +196,7 @@ def _create_run(config: dict[str, Any], *, config_path: Path) -> RunArtifacts:
         workflow_name="ticket-readiness",
         workflow_version="0.1.0",
         source=str(config.get("team_key") or config.get("team") or "linear-sandbox"),
-        linear_project_id=str(project["id"]),
+        linear_project_id=_linear_project_id(config),
         linear_project_url=str(project.get("url") or ""),
     )
 
@@ -205,6 +213,18 @@ def _artifact_root(config: dict[str, Any], *, config_path: Path) -> Path:
     if ".." in configured_root.parts:
         raise WorkflowError("artifact_root must not contain parent traversal ('..').")
     return config_path.parent / configured_root
+
+
+def _linear_project_id(config: dict[str, Any]) -> str:
+    project = config.get("project")
+    if not isinstance(project, dict):
+        raise WorkflowError("project must be a configuration mapping with a Linear project UUID in project.id.")
+
+    project_id = str(project.get("id") or "").strip()
+    if not _LINEAR_PROJECT_UUID_PATTERN.match(project_id):
+        raise WorkflowError("project.id must be a Linear project UUID.")
+
+    return project_id
 
 
 def _write_back_enabled(config: dict[str, Any]) -> bool:
@@ -339,7 +359,7 @@ def _load_fixture_issues(path: Path | None, *, config: dict[str, Any]) -> list[L
 
 
 def _read_linear_issues(config: dict[str, Any], *, rate_limiter: FixedDelayRateLimiter) -> list[LinearIssue]:
-    project_id = str(config["project"]["id"])
+    project_id = _linear_project_id(config)
     return LinearIssueReader(
         client=LinearGraphQLClient(rate_limiter=rate_limiter)
     ).read_project_issues(project_id, max_issues=_max_issues(config))

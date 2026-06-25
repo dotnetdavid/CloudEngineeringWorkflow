@@ -231,6 +231,17 @@ def test_run_analysis_rejects_traversal_artifact_root_before_writing(tmp_path, c
     assert not (tmp_path.parent / "sensitive").exists()
 
 
+def test_run_analysis_rejects_invalid_linear_project_id_before_writing(tmp_path, capsys):
+    config = _config(tmp_path, project_id="project-123")
+    fixture = _fixture(tmp_path)
+
+    exit_code = main(["--config", str(config), "run-analysis", "--fixture-data", str(fixture), "--mock-llm"])
+
+    assert exit_code == 1
+    assert "project.id must be a Linear project UUID" in capsys.readouterr().out
+    assert not (tmp_path / "runs").exists()
+
+
 def test_run_analysis_enforces_configured_max_issue_count(tmp_path, capsys):
     config = _config(tmp_path, max_issues=1)
     fixture = tmp_path / "issues.json"
@@ -455,6 +466,7 @@ def _config(
     tmp_path: Path,
     *,
     artifact_root: str | None = None,
+    project_id: str = "8ff212c4-dfc7-4152-88e0-3dd65723a420",
     max_issues: int | None = None,
     write_back_enabled: bool = False,
     extra_lines: list[str] | None = None,
@@ -471,8 +483,8 @@ def _config(
         [
             "project:",
             "  name: AI Workflow Sandbox - Ticket Readiness",
-            "  id: project-123",
-            "  url: https://linear.app/asgard-ai-agency/project/project-123",
+            f"  id: {project_id}",
+            f"  url: https://linear.app/asgard-ai-agency/project/{project_id}",
             "write_back:",
             f"  enabled: {str(write_back_enabled).lower()}",
             "  requires_human_approval: true",
