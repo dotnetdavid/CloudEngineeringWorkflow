@@ -152,6 +152,9 @@ Required fields:
 - `write_back.enabled`
 - `write_back.requires_human_approval`
 
+`project.id` must be a Linear project UUID. Invalid project IDs must be
+rejected before run artifact creation, Linear API reads, or OpenAI API calls.
+
 ### 5.2 Linear Issue Fields
 
 For each issue, the workflow should capture:
