@@ -76,6 +76,8 @@ class RunArtifacts:
 
 
 class ArtifactStore:
+    """Create isolated, atomic run artifact directories."""
+
     def __init__(self, root: str | Path) -> None:
         self._root = Path(root)
 
@@ -123,6 +125,7 @@ class ArtifactStore:
 
 
 def generate_run_id(source: str, *, now: datetime | None = None, nonce: str | None = None) -> str:
+    """Build a filesystem-safe run ID from timestamp, source, and nonce."""
     timestamp = _run_timestamp(now)
     source_slug = _slug(source) or "run"
     suffix = _slug(nonce or uuid.uuid4().hex[:8])[:16]

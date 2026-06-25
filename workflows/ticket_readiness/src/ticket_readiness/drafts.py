@@ -27,6 +27,7 @@ def generate_draft_comment(
     issue: LinearIssue,
     llm_analysis: LLMAnalysis | None,
 ) -> DraftComment:
+    """Persist a Linear-ready draft comment for a completed issue analysis."""
     if llm_analysis is None:
         raise DraftGenerationError(f"Cannot generate draft without valid analysis: {issue.identifier}")
 
@@ -47,6 +48,7 @@ def generate_draft_comment(
 
 
 def render_draft_comment(*, issue: LinearIssue, llm_analysis: LLMAnalysis) -> str:
+    """Render the human-reviewable Linear comment body for one issue."""
     return "\n".join(
         [
             "<!-- generated-by: ticket-readiness-workflow -->",
@@ -87,6 +89,7 @@ def render_draft_comment(*, issue: LinearIssue, llm_analysis: LLMAnalysis) -> st
 
 
 def compute_draft_hash(path: str | Path) -> str:
+    """Return a SHA-256 hash for approval freshness checks."""
     digest = hashlib.sha256()
     with Path(path).open("rb") as draft_file:
         for chunk in iter(lambda: draft_file.read(65536), b""):

@@ -13,6 +13,7 @@ class ConfigError(TicketReadinessError):
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
+    """Load a YAML config file and require a top-level mapping."""
     config_path = Path(path)
     try:
         with config_path.open("r", encoding="utf-8") as config_file:

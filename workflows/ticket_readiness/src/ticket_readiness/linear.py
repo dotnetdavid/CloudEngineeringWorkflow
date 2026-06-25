@@ -115,6 +115,8 @@ class LinearIssue:
 
 
 class LinearGraphQLClient:
+    """Execute authenticated read-only GraphQL requests against Linear."""
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -171,6 +173,8 @@ class LinearGraphQLClient:
 
 
 class LinearIssueReader:
+    """Read and normalize issues from a single Linear project."""
+
     def __init__(self, client: LinearGraphQLTransport) -> None:
         self._client = client
 
@@ -205,6 +209,7 @@ class LinearIssueReader:
 
 
 def normalize_issue(raw_issue: dict[str, Any]) -> LinearIssue:
+    """Convert a Linear API or fixture payload into the internal issue model."""
     identifier = str(raw_issue.get("identifier") or raw_issue.get("id") or "").strip()
     if not identifier:
         raise LinearReadError("Linear issue payload is missing both identifier and id.")

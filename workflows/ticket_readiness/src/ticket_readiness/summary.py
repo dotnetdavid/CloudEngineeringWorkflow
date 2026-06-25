@@ -32,6 +32,7 @@ def generate_run_summary(
     issues: list[SummaryIssue],
     errors: list[str] | None = None,
 ) -> str:
+    """Persist a markdown run summary and update manifest metrics."""
     summary_path = "summary.md"
     run_errors = errors or []
     metrics = collect_run_metrics(run=run, issues=issues, errors=run_errors)
@@ -51,6 +52,7 @@ def render_run_summary(
     errors: list[str],
     metrics: dict[str, Any] | None = None,
 ) -> str:
+    """Render the run summary from issue results, errors, and metrics."""
     run_metrics = metrics or collect_run_metrics(run=run, issues=issues, errors=errors)
     status_counts = Counter(issue.readiness_status for issue in issues)
     risk_counts = Counter(issue.risk_level for issue in issues)
@@ -96,6 +98,7 @@ def collect_run_metrics(
     issues: list[SummaryIssue],
     errors: list[str],
 ) -> dict[str, Any]:
+    """Collect conservative workflow metrics from run artifacts and results."""
     issue_errors = [issue for issue in issues if issue.error]
     report_metadata = _report_model_metadata(run, issues)
     usage = _model_usage(report_metadata)
@@ -238,6 +241,7 @@ def _metric_phase(event_type: str) -> str:
 
 
 def _report_model_metadata(run: RunArtifacts, issues: list[SummaryIssue]) -> list[dict[str, Any]]:
+    """Read model metadata from completed issue reports when available."""
     metadata: list[dict[str, Any]] = []
     for issue in issues:
         if issue.report is None:

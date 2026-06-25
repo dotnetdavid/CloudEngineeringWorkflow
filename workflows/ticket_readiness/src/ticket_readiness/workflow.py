@@ -44,6 +44,7 @@ def run_analysis(
     fixture_data: Path | None = None,
     mock_llm: bool = False,
 ) -> str:
+    """Run ticket readiness analysis and return the created run ID."""
     config = load_config(config_path)
     _linear_project_id(config)
     run = _create_run(config, config_path=config_path)
@@ -144,6 +145,7 @@ def run_analysis(
 
 
 def validate_approvals(*, config_path: Path, run_id: str) -> bool:
+    """Validate all generated approval records for an existing run."""
     run = _existing_run(load_config(config_path), run_id, config_path=config_path)
     drafts = sorted(run.path("drafts").glob("*-linear-comment.md"))
     all_valid = True
@@ -170,6 +172,7 @@ def validate_approvals(*, config_path: Path, run_id: str) -> bool:
 
 
 def post_approved(*, config_path: Path, run_id: str, issue_id: str) -> bool:
+    """Post one approved draft comment back to Linear when enabled."""
     config = load_config(config_path)
     if not _write_back_enabled(config):
         raise WorkflowError("Linear write-back is disabled by config: write_back.enabled must be true.")
@@ -184,6 +187,7 @@ def post_approved(*, config_path: Path, run_id: str, issue_id: str) -> bool:
 
 
 def summarize_run(*, config_path: Path, run_id: str) -> str:
+    """Regenerate a run summary from existing run artifacts."""
     run = _existing_run(load_config(config_path), run_id, config_path=config_path)
     issues, errors = _reconstruct_summary_state(run)
     return generate_run_summary(run=run, issues=issues, errors=errors)
@@ -233,6 +237,7 @@ def _write_back_enabled(config: dict[str, Any]) -> bool:
 
 
 def _reconstruct_summary_state(run: RunArtifacts) -> tuple[list[SummaryIssue], list[str]]:
+    """Rebuild summary inputs from reports, issue snapshots, and events."""
     snapshots = _issue_snapshots(run)
     issue_errors, run_errors = _errors_from_events(run)
     summary_issues: dict[str, SummaryIssue] = {}

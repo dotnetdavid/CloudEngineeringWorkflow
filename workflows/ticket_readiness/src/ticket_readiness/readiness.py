@@ -71,6 +71,7 @@ def evaluate_issue(
     *,
     custom_checks: Iterable[CustomCheck] = (),
 ) -> DeterministicReadinessResult:
+    """Evaluate deterministic readiness signals for one Linear issue."""
     text = _issue_text(issue)
     risk_flags = tuple(_risk_flags(text))
     work_type = _work_type(text, risk_flags)
@@ -222,6 +223,7 @@ def evaluate_issue(
 
 
 def load_custom_checks(config: dict[str, Any]) -> tuple[CustomCheck, ...]:
+    """Parse optional additive readiness checks from workflow config."""
     readiness_config = config.get("readiness")
     if readiness_config is None:
         return ()
@@ -405,6 +407,7 @@ _HIGH_INFRA_RISKS = {
 
 
 def _custom_check_from_config(index: int, raw_check: Any) -> CustomCheck:
+    """Validate one custom readiness check and compile its regex contract."""
     if not isinstance(raw_check, dict):
         raise ReadinessConfigError(f"readiness.custom_checks[{index}] must be a mapping.")
 

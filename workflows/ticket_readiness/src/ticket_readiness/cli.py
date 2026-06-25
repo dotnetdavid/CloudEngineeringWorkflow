@@ -16,6 +16,7 @@ from ticket_readiness.workflow import (
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the ticket-readiness command parser and subcommands."""
     parser = argparse.ArgumentParser(
         prog="ticket-readiness",
         description="Evaluate Linear issue readiness and produce review artifacts.",
@@ -63,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the CLI and translate expected domain errors into exit code 1."""
     configure_logging()
     parser = build_parser()
     args = parser.parse_args(argv)

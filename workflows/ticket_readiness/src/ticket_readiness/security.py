@@ -27,6 +27,7 @@ SECRET_PATTERNS = (
 
 
 def redact_secrets(value: Any) -> Any:
+    """Recursively redact obvious secret-like values before persistence."""
     if isinstance(value, str):
         redacted = value
         for pattern in SECRET_PATTERNS:
@@ -46,6 +47,7 @@ def redact_secrets(value: Any) -> Any:
 
 
 def contains_secret_like_value(value: Any) -> bool:
+    """Return whether a nested value contains an obvious secret pattern."""
     if isinstance(value, str):
         return any(pattern.search(value) for pattern in SECRET_PATTERNS)
     if isinstance(value, dict):

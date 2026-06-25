@@ -81,6 +81,8 @@ class LLMAnalysis:
 
 
 class HTTPOpenAIClient:
+    """Call the OpenAI Responses API with safe error reporting."""
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -131,6 +133,8 @@ class HTTPOpenAIClient:
 
 
 class LLMAnalysisAdapter:
+    """Produce validated ticket-readiness analysis from a model response."""
+
     def __init__(self, client: OpenAIResponseClient, model: str = DEFAULT_MODEL) -> None:
         self._client = client
         self._model = model
@@ -172,6 +176,7 @@ def build_analysis_prompt(
     rubric: dict[str, Any],
     deterministic_result: DeterministicReadinessResult,
 ) -> str:
+    """Build the bounded prompt payload for issue readiness analysis."""
     payload = {
         "issue": issue.to_dict(),
         "rubric": rubric,
@@ -191,6 +196,7 @@ def build_analysis_prompt(
 
 
 def validate_model_output(raw_output: str | dict[str, Any]) -> LLMAnalysis:
+    """Validate model output against the workflow analysis contract."""
     if isinstance(raw_output, str):
         try:
             output = json.loads(raw_output)
@@ -237,6 +243,7 @@ def validate_model_output(raw_output: str | dict[str, Any]) -> LLMAnalysis:
 
 
 def analysis_response_format() -> dict[str, Any]:
+    """Return the strict JSON schema requested from the Responses API."""
     return {
         "type": "json_schema",
         "name": "ticket_readiness_analysis",
