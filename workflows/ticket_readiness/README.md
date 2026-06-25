@@ -117,6 +117,22 @@ when a local shell override is enough. If both are set, `openai.model` wins.
 Pytest is configured to use `--capture=sys` because file-descriptor capture is
 unreliable from this WSL-mounted project path.
 
+### High-Fidelity Mocked Integration Tests
+
+Integration coverage uses high-fidelity mocked HTTP responses instead of live
+credentials by default. No live Linear or OpenAI mutation is required for the
+standard test suite. The integration tests patch only `urllib.request.urlopen`
+so the real CLI, HTTP clients, workflow orchestration, artifact generation,
+approval validation, and write-back logic still execute.
+
+Current integration coverage includes:
+
+- Linear read plus OpenAI analysis through report, draft, approval, summary,
+  and manifest artifact generation.
+- Approved Linear comment write-back through the real GraphQL mutation client,
+  with assertions that status, priority, and issue description mutations are
+  not attempted.
+
 ## CLI
 
 Fixture mode runs without external API calls:
